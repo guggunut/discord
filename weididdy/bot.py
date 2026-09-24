@@ -38,8 +38,27 @@ def split_message(text: str, limit: int = DISCORD_LIMIT) -> list[str]:
     return chunks
 
 
+def learnable_text(message: discord.Message, include_media: bool) -> str:
+    """Message text plus, optionally, links to its uploaded images/GIFs/videos
+    so they can be reposted later as embeds."""
+    text = message.content
+    if include_media:
+        text += "".join(
+            f" {a.url}"
+            for a in message.attachments
+            if (a.content_type or "").startswith(MEDIA_PREFIXES)
+        )
+    return text
+
+
 class WeididdyBot(discord.Client):
-    def __init__(self, store: MarkovStore, chat: ClaudeChat | None, dev_guild: int | None):
+    def __init__(
+        self,
+        store: MarkovStore,
+        chat: ClaudeChat | None,
+        dev_guild: int | None,
+        history_limit: int = 500,
+    ):
         intents = discord.Intents.default()
         intents.message_content = True  # privileged: enable it in the Developer Portal
         super().__init__(intents=intents, allowed_mentions=NO_PINGS)
@@ -48,6 +67,8 @@ class WeididdyBot(discord.Client):
         self.chat = chat
         self.dev_guild = dev_guild
         self.counters: dict[int, int] = defaultdict(int)  # channel id -> messages since last post
+        self.history_limit = history_limit
+        self._backfilling: set[int] = set()
         register_commands(self)
 
     async def setup_hook(self) -> None:
@@ -60,6 +81,54 @@ class WeididdyBot(discord.Client):
 
     async def on_ready(self) -> None:
         log.info("Logged in as %s (%s)", self.user, self.user.id)
+        for guild in self.guilds:
+            await self.backfill_guild(guild)
+
+    async def on_guild_join(self, guild: discord.Guild) -> None:
+        await self.backfill_guild(guild)
+
+    async def backfill_guild(self, guild: discord.Guild) -> None:
+        """Learn from recent history in every channel not read before.
+
+        Each channel is only read once (tracked in the database), so restarts
+        don't learn the same messages twice.
+        """
+        if self.history_limit <= 0:
+            return
+        for channel in guild.text_channels:
+            perms = channel.permissions_for(guild.me)
+            if not (perms.view_channel and perms.read_message_history):
+                continue
+            if (
+                channel.id in self._backfilling
+                or self.store.is_backfilled(channel.id)
+                or self.store.is_ignored(channel.id)
+            ):
+                continue
+            self._backfilling.add(channel.id)
+            try:
+                learned = await self._backfill_channel(channel)
+            except discord.HTTPException:
+                log.exception("Couldn't read history in #%s (%s)", channel.name, guild.name)
+                continue
+            finally:
+                self._backfilling.discard(channel.id)
+            self.store.mark_backfilled(guild.id, channel.id)
+            log.info("Learned %d old messages from #%s (%s)", learned, channel.name, guild.name)
+
+    async def _backfill_channel(self, channel: discord.TextChannel) -> int:
+        settings = self.store.get_settings(channel.guild.id)
+        # Messages arriving from now on are learned live by on_message.
+        before = discord.utils.utcnow()
+        learned = 0
+        async for message in channel.history(limit=self.history_limit, before=before):
+            if message.author.bot or self.user in message.mentions:
+                continue
+            if self.store.learn(
+                channel.guild.id, learnable_text(message, settings.learn_links), settings.learn_links
+            ):
+                learned += 1
+        return learned
 
     def _is_for_me(self, message: discord.Message) -> bool:
         if self.user in message.mentions:
@@ -82,15 +151,7 @@ class WeididdyBot(discord.Client):
         if self.store.is_ignored(message.channel.id):
             return
         settings = self.store.get_settings(message.guild.id)
-        text = message.content
-        if settings.learn_links:
-            # Uploaded images/GIFs/videos: learn their links so they can be
-            # reposted later as embeds.
-            text += "".join(
-                f" {a.url}"
-                for a in message.attachments
-                if (a.content_type or "").startswith(MEDIA_PREFIXES)
-            )
+        text = learnable_text(message, settings.learn_links)
         if not self.store.learn(message.guild.id, text, settings.learn_links):
             return
 
@@ -260,5 +321,10 @@ def main() -> None:
         log.warning("ANTHROPIC_API_KEY not set: @mentions will get a mashup instead of an AI reply.")
 
     dev_guild = os.environ.get("DEV_GUILD_ID")
-    bot = WeididdyBot(store, chat, int(dev_guild) if dev_guild else None)
+    bot = WeididdyBot(
+        store,
+        chat,
+        int(dev_guild) if dev_guild else None,
+        history_limit=int(os.environ.get("LEARN_HISTORY", "500")),
+    )
     bot.run(token, log_handler=None)

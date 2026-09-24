@@ -5,6 +5,7 @@ A Discord bot inspired by GenAI. It reads the chat, learns the words people use,
 ## Features
 
 - **Word mashups:** learns from every message in the server and posts a remix every *N* messages. Each server has its own vocabulary.
+- **Learns right away:** the first time it sees a channel, it reads the last 500 messages there, so it has words to work with from the start.
 - **Chat:** @mention it or reply to one of its messages and it replies. It reads the last 20 messages in the channel for context.
 - **Reads images:** attach an image (PNG, JPEG, GIF, WebP, up to 5 MB) when you talk to it and it can see the image.
 - **Web search:** it searches the web when a question needs current info.
@@ -82,6 +83,7 @@ Slash commands can take a while to show up the first time. To see them immediate
 | `CLAUDE_MODEL` | `claude-opus-5` | Which Claude model to use |
 | `CLAUDE_EFFORT` | `medium` | `low`, `medium` or `high`. Higher is smarter but slower and costs more |
 | `CHAT_HISTORY` | `20` | How many recent messages Claude reads for context |
+| `LEARN_HISTORY` | `500` | How many old messages to read per channel the first time (`0` = don't) |
 | `WEIDIDDY_DB` | `weididdy.db` | SQLite file for learned words and settings |
 | `DEV_GUILD_ID` | none | Sync slash commands to this server instantly |
 
@@ -89,7 +91,8 @@ Slash commands can take a while to show up the first time. To see them immediate
 
 - The Claude API is billed per use. Every @mention or reply to the bot is one API call, plus any web searches it runs. Mashups are free and run locally.
 - Reposted links are ordinary links, so if the original image or GIF is deleted, its embed stops working.
-- The bot learns only while it's running, and keeps learned words and settings in `weididdy.db`.
+- The bot reads each channel's old messages only once, even across restarts. After that it learns new messages while it's running. Learned words and settings are kept in `weididdy.db`, so deleting that file makes it start fresh and read the history again.
+- `/forget` wipes the learned words but doesn't re-read old messages, so the bot starts learning again from new chat.
 
 ## Development
 

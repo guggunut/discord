@@ -134,3 +134,12 @@ def test_one_to_three_distinct_links_per_mashup(tmp_path):
         assert len(links) <= 3
         link_counts.add(len(links))
     assert {1, 2, 3} <= link_counts  # the cap really varies
+
+
+def test_backfill_flags(tmp_path):
+    store = make_store(tmp_path)
+    assert not store.is_backfilled(5)
+    store.mark_backfilled(1, 5)
+    store.mark_backfilled(1, 5)  # idempotent
+    assert store.is_backfilled(5)
+    assert make_store(tmp_path).is_backfilled(5)  # survives restarts

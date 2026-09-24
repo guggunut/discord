@@ -87,6 +87,10 @@ class MarkovStore:
                     guild_id INTEGER NOT NULL,
                     channel_id INTEGER PRIMARY KEY
                 );
+                CREATE TABLE IF NOT EXISTS backfilled_channels (
+                    guild_id INTEGER NOT NULL,
+                    channel_id INTEGER PRIMARY KEY
+                );
                 """
             )
             columns = {row[1] for row in self._db.execute("PRAGMA table_info(settings)")}
@@ -262,6 +266,22 @@ class MarkovStore:
                 (guild_id, channel_id),
             )
             return True
+
+    def is_backfilled(self, channel_id: int) -> bool:
+        with self._lock:
+            return (
+                self._db.execute(
+                    "SELECT 1 FROM backfilled_channels WHERE channel_id = ?", (channel_id,)
+                ).fetchone()
+                is not None
+            )
+
+    def mark_backfilled(self, guild_id: int, channel_id: int) -> None:
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT OR IGNORE INTO backfilled_channels (guild_id, channel_id) VALUES (?, ?)",
+                (guild_id, channel_id),
+            )
 
     def close(self) -> None:
         self._db.close()
