@@ -13,6 +13,7 @@ from discord import app_commands
 from dotenv import load_dotenv
 
 from .chat import ClaudeChat
+from .custom_replies import find_reply
 from .markov import MarkovStore
 
 log = logging.getLogger("weididdy")
@@ -150,6 +151,11 @@ class WeididdyBot(discord.Client):
 
         if self.store.is_ignored(message.channel.id):
             return
+
+        custom = find_reply(message.content, message.author.display_name)
+        if custom:
+            await message.reply(custom[:DISCORD_LIMIT])
+
         settings = self.store.get_settings(message.guild.id)
         text = learnable_text(message, settings.learn_links)
         if not self.store.learn(message.guild.id, text, settings.learn_links):

@@ -143,3 +143,19 @@ def test_backfill_flags(tmp_path):
     store.mark_backfilled(1, 5)  # idempotent
     assert store.is_backfilled(5)
     assert make_store(tmp_path).is_backfilled(5)  # survives restarts
+
+
+def test_custom_replies(monkeypatch):
+    from weididdy import custom_replies
+
+    monkeypatch.setattr(
+        custom_replies,
+        "CUSTOM_REPLIES",
+        {"hi": "hello {user}", "good morning": ["a", "b"], "c++": "nice"},
+    )
+    find = custom_replies.find_reply
+    assert find("HI there", "Bob") == "hello Bob"
+    assert find("this is high", "Bob") is None  # whole words only
+    assert find("well good morning!!", "Bob") in {"a", "b"}
+    assert find("i love c++", "Bob") == "nice"
+    assert find("nothing here", "Bob") is None

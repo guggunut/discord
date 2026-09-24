@@ -10,6 +10,7 @@ A Discord bot inspired by GenAI. It reads the chat, learns the words people use,
 - **Reads images:** attach an image (PNG, JPEG, GIF, WebP, up to 5 MB) when you talk to it and it can see the image.
 - **Web search:** it searches the web when a question needs current info.
 - **Images and GIFs:** like GenAI, it learns links (Tenor GIFs, image links, and images people upload) and mixes them into mashups, where Discord shows them as embeds. Each mashup has a random 1–3 links at most, never the same one twice. An admin can turn this off with `/links`.
+- **Custom replies:** set trigger phrases and what the bot says back in `weididdy/custom_replies.py`.
 - **No pings:** it strips @mentions and @everyone from what it learns, and it never pings anyone when it posts.
 
 ## Slash commands
@@ -73,6 +74,19 @@ python3 -m weididdy
 When the `.env` file opens, paste your tokens after `DISCORD_TOKEN=` and `ANTHROPIC_API_KEY=`, with no spaces or quotes, then save and close it. The next time you start the bot, you only need the activate line and the last line.
 
 Slash commands can take a while to show up the first time. To see them immediately, put your server's ID in `DEV_GUILD_ID` in `.env`. To copy the ID, turn on Developer Mode in Discord, then right-click the server.
+
+## Custom replies
+
+Open `weididdy/custom_replies.py` in any text editor and add lines to `CUSTOM_REPLIES`:
+
+```python
+CUSTOM_REPLIES = {
+    "good morning": ["gm {user} ☀️", "morning!!"],   # a list = random pick
+    "ping": "pong 🏓",
+}
+```
+
+Matching ignores capitals and only matches whole words. `{user}` becomes the sender's name. Restart the bot after editing.
 
 ## Configuration (`.env`)
 
