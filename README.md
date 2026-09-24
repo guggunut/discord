@@ -45,16 +45,31 @@ Create a key at <https://console.anthropic.com/>. Without a key, the mashups sti
 
 ### 3. Run it
 
-You need Python 3.10 or newer.
+You need Python 3.10 or newer. Type each line on its own and press Enter after each one.
+
+**Windows (Command Prompt):**
+
+```bat
+py -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+notepad .env
+py -m weididdy
+```
+
+**Mac / Linux:**
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-
-cp .env.example .env             # then open .env and fill in your tokens
-python -m weididdy
+cp .env.example .env
+nano .env
+python3 -m weididdy
 ```
+
+When the `.env` file opens, paste your tokens after `DISCORD_TOKEN=` and `ANTHROPIC_API_KEY=`, with no spaces or quotes, then save and close it. The next time you start the bot, you only need the activate line and the last line.
 
 Slash commands can take a while to show up the first time. To see them immediately, put your server's ID in `DEV_GUILD_ID` in `.env`. To copy the ID, turn on Developer Mode in Discord, then right-click the server.
 
