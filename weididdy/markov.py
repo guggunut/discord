@@ -22,6 +22,7 @@ _URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
 _EVERYONE_RE = re.compile(r"@(everyone|here)", re.IGNORECASE)
 
 MAX_WORD_LEN = 40
+MAX_LINK_LEN = 1000
 
 
 @dataclass
@@ -31,19 +32,31 @@ class GuildSettings:
     min_words: int = 3
     max_words: int = 25
     reply_chance: int = 0  # extra % chance to post on any message
+    learn_links: bool = True  # learn and repost links (images/GIFs embed)
 
 
-def tokenize(text: str) -> list[str]:
+def is_link(word: str) -> bool:
+    return _URL_RE.fullmatch(word) is not None
+
+
+def tokenize(text: str, keep_links: bool = True) -> list[str]:
     """Split a Discord message into learnable words.
 
-    Mentions and links are dropped so the bot never pings
-    anyone or reposts links; @everyone/@here are stripped too.
+    Mentions and @everyone/@here are dropped so the bot never pings anyone.
+    Links are kept as single words (unless keep_links is False) so image and
+    GIF links get reposted and Discord embeds them.
     """
     text = _MENTION_RE.sub(" ", text)
-    text = _URL_RE.sub(" ", text)
     text = _EVERYONE_RE.sub(" ", text)
     text = text.replace(START, " ").replace(END, " ")
-    return [w for w in text.split() if len(w) <= MAX_WORD_LEN]
+    words = []
+    for w in text.split():
+        if is_link(w):
+            if keep_links and len(w) <= MAX_LINK_LEN:
+                words.append(w)
+        elif len(w) <= MAX_WORD_LEN:
+            words.append(w)
+    return words
 
 
 class MarkovStore:
@@ -66,7 +79,8 @@ class MarkovStore:
                     frequency INTEGER NOT NULL,
                     min_words INTEGER NOT NULL,
                     max_words INTEGER NOT NULL,
-                    reply_chance INTEGER NOT NULL
+                    reply_chance INTEGER NOT NULL,
+                    learn_links INTEGER NOT NULL DEFAULT 1
                 );
                 CREATE TABLE IF NOT EXISTS ignored_channels (
                     guild_id INTEGER NOT NULL,
@@ -74,12 +88,17 @@ class MarkovStore:
                 );
                 """
             )
+            columns = {row[1] for row in self._db.execute("PRAGMA table_info(settings)")}
+            if "learn_links" not in columns:  # databases from before link support
+                self._db.execute(
+                    "ALTER TABLE settings ADD COLUMN learn_links INTEGER NOT NULL DEFAULT 1"
+                )
 
     # ----- learning -------------------------------------------------------
 
-    def learn(self, guild_id: int, text: str) -> bool:
+    def learn(self, guild_id: int, text: str, keep_links: bool = True) -> bool:
         """Add a message to the guild's chain. Returns False if nothing was learned."""
-        words = tokenize(text)
+        words = tokenize(text, keep_links)
         if not words:
             return False
         chain = [START, *words, END]
@@ -97,6 +116,19 @@ class MarkovStore:
     def forget(self, guild_id: int) -> None:
         with self._lock, self._db:
             self._db.execute("DELETE FROM transitions WHERE guild_id = ?", (guild_id,))
+
+    def forget_links(self, guild_id: int) -> None:
+        """Remove every learned link from a guild's chain."""
+        with self._lock, self._db:
+            self._db.execute(
+                """
+                DELETE FROM transitions WHERE guild_id = ? AND (
+                    prev LIKE 'http://%' OR prev LIKE 'https://%'
+                    OR next LIKE 'http://%' OR next LIKE 'https://%'
+                )
+                """,
+                (guild_id,),
+            )
 
     def stats(self, guild_id: int) -> tuple[int, int]:
         """Return (distinct words, messages learned) for a guild."""
@@ -142,6 +174,7 @@ class MarkovStore:
 
         target = rng.randint(min_words, max_words)
         words: list[str] = []
+        has_link = False
         prev = START
         # Guard against pathological chains that never make progress.
         for _ in range(max_words * 4):
@@ -149,12 +182,19 @@ class MarkovStore:
                 break
             options = self._next_options(guild_id, prev)
             nxt = self._pick(options, rng) if options else END
+            if is_link(nxt) and has_link:
+                nxt = END  # one link per mashup, or chat fills up with embeds
             if nxt == END:
+                # Someone posted just an image/GIF link: repost it on its own,
+                # the way the original message looked.
+                if len(words) == 1 and is_link(words[0]):
+                    break
                 # Hit the end of a sentence before the target length:
                 # jump to a fresh start word to keep the mashup going.
                 prev = START
                 continue
             words.append(nxt)
+            has_link = has_link or is_link(nxt)
             prev = nxt
         return " ".join(words) if words else None
 
@@ -163,26 +203,36 @@ class MarkovStore:
     def get_settings(self, guild_id: int) -> GuildSettings:
         with self._lock:
             row = self._db.execute(
-                "SELECT frequency, min_words, max_words, reply_chance FROM settings WHERE guild_id = ?",
+                "SELECT frequency, min_words, max_words, reply_chance, learn_links"
+                " FROM settings WHERE guild_id = ?",
                 (guild_id,),
             ).fetchone()
         if row is None:
             return GuildSettings(guild_id)
-        return GuildSettings(guild_id, *row)
+        return GuildSettings(guild_id, *row[:4], learn_links=bool(row[4]))
 
     def save_settings(self, s: GuildSettings) -> None:
         with self._lock, self._db:
             self._db.execute(
                 """
-                INSERT INTO settings (guild_id, frequency, min_words, max_words, reply_chance)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO settings
+                    (guild_id, frequency, min_words, max_words, reply_chance, learn_links)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT (guild_id) DO UPDATE SET
                     frequency = excluded.frequency,
                     min_words = excluded.min_words,
                     max_words = excluded.max_words,
-                    reply_chance = excluded.reply_chance
+                    reply_chance = excluded.reply_chance,
+                    learn_links = excluded.learn_links
                 """,
-                (s.guild_id, s.frequency, s.min_words, s.max_words, s.reply_chance),
+                (
+                    s.guild_id,
+                    s.frequency,
+                    s.min_words,
+                    s.max_words,
+                    s.reply_chance,
+                    int(s.learn_links),
+                ),
             )
 
     def is_ignored(self, channel_id: int) -> bool:

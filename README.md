@@ -8,7 +8,8 @@ A Discord bot inspired by GenAI. It reads the chat, learns the words people use,
 - **Chat:** @mention it or reply to one of its messages and it replies. It reads the last 20 messages in the channel for context.
 - **Reads images:** attach an image (PNG, JPEG, GIF, WebP, up to 5 MB) when you talk to it and it can see the image.
 - **Web search:** it searches the web when a question needs current info.
-- **No pings:** it strips @mentions, @everyone and links from what it learns, and it never pings anyone when it posts.
+- **Images and GIFs:** like GenAI, it learns links (Tenor GIFs, image links, and images people upload) and mixes them into mashups, where Discord shows them as embeds. Each mashup has at most one link. An admin can turn this off with `/links`.
+- **No pings:** it strips @mentions and @everyone from what it learns, and it never pings anyone when it posts.
 
 ## Slash commands
 
@@ -19,6 +20,7 @@ A Discord bot inspired by GenAI. It reads the chat, learns the words people use,
 | `/frequency <messages>` | Manage Server | Post a mashup every *N* messages (`0` = off). Default: 10 |
 | `/length <min> <max>` | Manage Server | Shortest and longest mashup, in words. Default: 3–25 |
 | `/chance <percent>` | Manage Server | Extra % chance of a mashup on any message. Default: 0 |
+| `/links <on/off>` | Manage Server | Learn and repost links, images and GIFs. Default: on. Turning it off also forgets learned links |
 | `/ignore` | Manage Server | Stop or restart learning and posting in the current channel |
 | `/forget` | Manage Server | Wipe everything it has learned in this server |
 
@@ -71,6 +73,7 @@ Slash commands can take a while to show up the first time. To see them immediate
 ## Notes
 
 - The Claude API is billed per use. Every @mention or reply to the bot is one API call, plus any web searches it runs. Mashups are free and run locally.
+- Reposted links are ordinary links, so if the original image or GIF is deleted, its embed stops working.
 - The bot learns only while it's running, and keeps learned words and settings in `weididdy.db`.
 
 ## Development

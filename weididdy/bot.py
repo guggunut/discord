@@ -19,6 +19,7 @@ log = logging.getLogger("weididdy")
 
 NO_PINGS = discord.AllowedMentions.none()
 DISCORD_LIMIT = 2000
+MEDIA_PREFIXES = ("image/", "video/")
 
 
 def split_message(text: str, limit: int = DISCORD_LIMIT) -> list[str]:
@@ -80,10 +81,19 @@ class WeididdyBot(discord.Client):
 
         if self.store.is_ignored(message.channel.id):
             return
-        if not self.store.learn(message.guild.id, message.content):
+        settings = self.store.get_settings(message.guild.id)
+        text = message.content
+        if settings.learn_links:
+            # Uploaded images/GIFs/videos: learn their links so they can be
+            # reposted later as embeds.
+            text += "".join(
+                f" {a.url}"
+                for a in message.attachments
+                if (a.content_type or "").startswith(MEDIA_PREFIXES)
+            )
+        if not self.store.learn(message.guild.id, text, settings.learn_links):
             return
 
-        settings = self.store.get_settings(message.guild.id)
         self.counters[message.channel.id] += 1
         due = settings.frequency > 0 and self.counters[message.channel.id] >= settings.frequency
         lucky = settings.reply_chance > 0 and random.randint(1, 100) <= settings.reply_chance
@@ -201,9 +211,25 @@ def register_commands(bot: WeididdyBot) -> None:
             f"**Learned:** {words:,} words from {messages:,} messages\n"
             f"**Auto mashups:** {freq}\n"
             f"**Random chance:** {s.reply_chance}%\n"
+            f"**Links & images:** {'on' if s.learn_links else 'off'}\n"
             f"**Length:** {s.min_words}–{s.max_words} words\n"
             f"**This channel:** {'ignored' if store.is_ignored(interaction.channel_id) else 'listening'}"
         )
+
+    @tree.command(description="Turn learning and reposting links, images and GIFs on or off")
+    @app_commands.describe(enabled="On: repost links/images like GenAI. Off: words only")
+    @app_commands.guild_only()
+    @app_commands.default_permissions(manage_guild=True)
+    async def links(interaction: discord.Interaction, enabled: bool) -> None:
+        s = store.get_settings(interaction.guild_id)
+        s.learn_links = enabled
+        store.save_settings(s)
+        if enabled:
+            msg = "I'll learn and repost links, images and GIFs."
+        else:
+            store.forget_links(interaction.guild_id)
+            msg = "Links are off, and I've forgotten the ones I learned. Words only now."
+        await interaction.response.send_message(msg)
 
     @tree.command(description="Wipe every word Weididdy Bot has learned in this server")
     @app_commands.guild_only()
