@@ -121,12 +121,16 @@ def test_old_database_gets_links_column(tmp_path):
     assert (s.frequency, s.learn_links) == (7, True)
 
 
-def test_at_most_one_link_per_mashup(tmp_path):
+def test_one_to_three_distinct_links_per_mashup(tmp_path):
     store = make_store(tmp_path)
-    for i in range(5):
+    for i in range(10):
         store.learn(1, "lol look")
         store.learn(1, f"https://cdn.discordapp.com/attachments/1/2/cat{i}.gif")
     rng = random.Random(2)
-    for _ in range(50):
-        words = store.generate(1, 5, 25, rng=rng).split()
-        assert sum(w.startswith("https://") for w in words) <= 1
+    link_counts = set()
+    for _ in range(200):
+        links = [w for w in store.generate(1, 10, 25, rng=rng).split() if w.startswith("https://")]
+        assert len(links) == len(set(links))  # never the same link twice
+        assert len(links) <= 3
+        link_counts.add(len(links))
+    assert {1, 2, 3} <= link_counts  # the cap really varies

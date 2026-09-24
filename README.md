@@ -8,7 +8,7 @@ A Discord bot inspired by GenAI. It reads the chat, learns the words people use,
 - **Chat:** @mention it or reply to one of its messages and it replies. It reads the last 20 messages in the channel for context.
 - **Reads images:** attach an image (PNG, JPEG, GIF, WebP, up to 5 MB) when you talk to it and it can see the image.
 - **Web search:** it searches the web when a question needs current info.
-- **Images and GIFs:** like GenAI, it learns links (Tenor GIFs, image links, and images people upload) and mixes them into mashups, where Discord shows them as embeds. Each mashup has at most one link. An admin can turn this off with `/links`.
+- **Images and GIFs:** like GenAI, it learns links (Tenor GIFs, image links, and images people upload) and mixes them into mashups, where Discord shows them as embeds. Each mashup has a random 1–3 links at most, never the same one twice. An admin can turn this off with `/links`.
 - **No pings:** it strips @mentions and @everyone from what it learns, and it never pings anyone when it posts.
 
 ## Slash commands

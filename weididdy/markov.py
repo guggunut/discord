@@ -23,6 +23,7 @@ _EVERYONE_RE = re.compile(r"@(everyone|here)", re.IGNORECASE)
 
 MAX_WORD_LEN = 40
 MAX_LINK_LEN = 1000
+MAX_LINKS_PER_MASHUP = 3
 
 
 @dataclass
@@ -174,7 +175,10 @@ class MarkovStore:
 
         target = rng.randint(min_words, max_words)
         words: list[str] = []
-        has_link = False
+        # 1-3 links per mashup (random), never the same one twice,
+        # so chat doesn't fill up with embeds.
+        link_cap = rng.randint(1, MAX_LINKS_PER_MASHUP)
+        used_links: set[str] = set()
         prev = START
         # Guard against pathological chains that never make progress.
         for _ in range(max_words * 4):
@@ -182,8 +186,8 @@ class MarkovStore:
                 break
             options = self._next_options(guild_id, prev)
             nxt = self._pick(options, rng) if options else END
-            if is_link(nxt) and has_link:
-                nxt = END  # one link per mashup, or chat fills up with embeds
+            if is_link(nxt) and (nxt in used_links or len(used_links) >= link_cap):
+                nxt = END
             if nxt == END:
                 # Someone posted just an image/GIF link: repost it on its own,
                 # the way the original message looked.
@@ -194,7 +198,8 @@ class MarkovStore:
                 prev = START
                 continue
             words.append(nxt)
-            has_link = has_link or is_link(nxt)
+            if is_link(nxt):
+                used_links.add(nxt)
             prev = nxt
         return " ".join(words) if words else None
 
