@@ -1,8 +1,8 @@
 import random
 import sqlite3
 
-from weididdy.bot import split_message
-from weididdy.markov import MarkovStore, tokenize
+from weididdy_bot import split_message
+from weididdy_bot import MarkovStore, tokenize
 
 
 def make_store(tmp_path):
@@ -146,7 +146,7 @@ def test_backfill_flags(tmp_path):
 
 
 def test_custom_replies(monkeypatch):
-    from weididdy import custom_replies
+    import weididdy_bot as custom_replies
 
     monkeypatch.setattr(
         custom_replies,

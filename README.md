@@ -10,7 +10,7 @@ A Discord bot inspired by GenAI. It reads the chat, learns the words people use,
 - **Reads images:** attach an image (PNG, JPEG, GIF, WebP, up to 5 MB) when you talk to it and it can see the image.
 - **Web search:** it searches the web when a question needs current info.
 - **Images and GIFs:** like GenAI, it learns links (Tenor GIFs, image links, and images people upload) and mixes them into mashups, where Discord shows them as embeds. Each mashup has a random 1–3 links at most, never the same one twice. An admin can turn this off with `/links`.
-- **Custom replies:** set trigger phrases and what the bot says back in `weididdy/custom_replies.py`.
+- **Custom replies:** set trigger phrases and what the bot says back in `CUSTOM_REPLIES` at the top of `weididdy_bot.py`.
 - **No pings:** it strips @mentions and @everyone from what it learns, and it never pings anyone when it posts.
 
 ## Slash commands
@@ -47,37 +47,27 @@ Create a key at <https://console.anthropic.com/>. Without a key, the mashups sti
 
 ### 3. Run it
 
-You need Python 3.10 or newer. Type each line on its own and press Enter after each one.
+Everything is in one file, `weididdy_bot.py`. You need Python 3.10 or newer. On Windows, tick **"Add Python to PATH"** when you install it.
 
-**Windows (Command Prompt):**
+Open Command Prompt in the folder with `weididdy_bot.py` and install the packages once:
 
 ```bat
-py -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env
-notepad .env
-py -m weididdy
+py -m pip install discord.py anthropic python-dotenv
 ```
 
-**Mac / Linux:**
+Then start the bot:
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-nano .env
-python3 -m weididdy
+```bat
+py weididdy_bot.py
 ```
 
-When the `.env` file opens, paste your tokens after `DISCORD_TOKEN=` and `ANTHROPIC_API_KEY=`, with no spaces or quotes, then save and close it. The next time you start the bot, you only need the activate line and the last line.
+The first time, it asks you to paste your Discord bot token and, optionally, a Claude API key. It saves them in a `.env` file next to the script. On Mac or Linux, use `python3` instead of `py`.
 
 Slash commands can take a while to show up the first time. To see them immediately, put your server's ID in `DEV_GUILD_ID` in `.env`. To copy the ID, turn on Developer Mode in Discord, then right-click the server.
 
 ## Custom replies
 
-Open `weididdy/custom_replies.py` in any text editor and add lines to `CUSTOM_REPLIES`:
+Open `weididdy_bot.py` in any text editor and add lines to `CUSTOM_REPLIES` near the top:
 
 ```python
 CUSTOM_REPLIES = {
