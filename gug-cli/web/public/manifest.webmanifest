@@ -1,0 +1,21 @@
+{
+  "name": "GUG-cli",
+  "short_name": "GUG",
+  "description": "Your local agentic OS — twelve AI agents, money, markets, studio and automations.",
+  "start_url": "/#/command",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#030303",
+  "theme_color": "#030303",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Agent room", "url": "/#/agents" },
+    { "name": "Code", "url": "/#/code" },
+    { "name": "Ventures", "url": "/#/ventures" },
+    { "name": "Markets", "url": "/#/markets" }
+  ]
+}

@@ -10,7 +10,7 @@ import { roundtable } from "./server/router.js";
 import { accessUrl, claudeKeys, vaultDelete, vaultSet } from "./server/local.js";
 import { Store } from "./server/store.js";
 import { paths } from "./server/config.js";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
 const RED = "\x1b[31m", DIM = "\x1b[2m", BOLD = "\x1b[1m", RESET = "\x1b[0m";
@@ -30,7 +30,7 @@ const BANNER = "\n" + LOGO.map((l, i) => " " + c(RED, l) + SIDE[i]).join("\n") +
 
 const HELP = `${BANNER}
 ${c(BOLD, "Usage")}
-  gug serve [--port 4747] [--no-open]          Start the app and open it in your browser
+  gug serve [--port 4747] [--no-open] [--tab]  Start the app and open it in its own window (--tab: a normal browser tab)
   gug link                                       Print your private link again
   gug key add | gug key remove                   Save or delete your Claude API key (encrypted)
   gug chat  [--agent atlas] [--mode deep] "…"   Talk to one agent through Claude
@@ -94,6 +94,34 @@ function envKeys(): string[] {
   return [...new Set([...fromEnv, ...fromVault])];
 }
 
+/** A Chromium-based browser that can open GUG-cli in its own app window (no tabs or address bar). */
+function findAppBrowser(): string | null {
+  const env = process.env;
+  const candidates =
+    process.platform === "win32"
+      ? [
+          `${env["ProgramFiles(x86)"]}\\Microsoft\\Edge\\Application\\msedge.exe`,
+          `${env.ProgramFiles}\\Microsoft\\Edge\\Application\\msedge.exe`,
+          `${env.ProgramFiles}\\Google\\Chrome\\Application\\chrome.exe`,
+          `${env["ProgramFiles(x86)"]}\\Google\\Chrome\\Application\\chrome.exe`,
+          `${env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`,
+          `${env.ProgramFiles}\\BraveSoftware\\Brave-Browser\\Application\\brave.exe`,
+        ]
+      : process.platform === "darwin"
+        ? ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge", "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser", "/Applications/Chromium.app/Contents/MacOS/Chromium"]
+        : ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/microsoft-edge", "/usr/bin/brave-browser", "/snap/bin/chromium"];
+  return candidates.find((c) => !c.includes("undefined") && existsSync(c)) ?? null;
+}
+
+/** Opens GUG-cli as a standalone app window when possible, otherwise in the default browser. */
+function openApp(url: string, preferTab: boolean) {
+  const app = preferTab ? null : findAppBrowser();
+  if (!app) return openBrowser(url);
+  const child = spawn(app, [`--app=${url}`, "--window-size=1440,940", "--no-first-run"], { detached: true, stdio: "ignore" });
+  child.on("error", () => openBrowser(url));
+  child.unref();
+}
+
 function openBrowser(url: string) {
   const [cmd, args] = process.platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url]] : process.platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
   execFile(cmd as string, args as string[], () => {});
@@ -134,7 +162,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       console.log(BANNER);
       const { server } = startServer({ port: flags.port ? Number(flags.port) : undefined, host: typeof flags.host === "string" ? flags.host : undefined });
       server.once("listening", () => {
-        if (!flags["no-open"]) openBrowser(accessUrl());
+        if (!flags["no-open"]) openApp(accessUrl(), !!flags.tab);
       });
       server.once("error", (err: NodeJS.ErrnoException) => {
         console.error(err.code === "EADDRINUSE" ? `Port in use. Try: gug serve --port ${(Number(flags.port) || 4747) + 1}` : err.message);
