@@ -4,8 +4,8 @@ import { useApp } from "../App";
 import { play, setSfx, type Sfx } from "../sfx";
 import { Brand, Icon, P, Seg, Switch, useSfxPrefs } from "../ui";
 
-type Section = "keys" | "engines" | "sound" | "data";
-const SECTIONS: [Section, string][] = [["keys", "API keys"], ["engines", "Engines"], ["sound", "Sound & motion"], ["data", "Data & alerts"]];
+type Section = "keys" | "engines" | "router" | "sound" | "data";
+const SECTIONS: [Section, string][] = [["keys", "API keys"], ["engines", "Engines"], ["router", "Router & usage"], ["sound", "Sound & motion"], ["data", "Data & alerts"]];
 
 export function Settings() {
   const [sec, setSec] = useState<Section>(() => (localStorage.getItem("gug-settings") as Section) ?? "keys");
@@ -31,6 +31,7 @@ export function Settings() {
       <div className="rise d3" style={{ minWidth: 0 }}>
         {sec === "keys" && <div className="tx-wipe"><Keys /></div>}
         {sec === "engines" && <div className="tx-iris"><Engines /></div>}
+        {sec === "router" && <div className="tx-scan"><Router /></div>}
         {sec === "sound" && <div className="tx-glitch"><Sound /></div>}
         {sec === "data" && <div className="tx-drop"><Data /></div>}
       </div>
@@ -196,7 +197,7 @@ function Sound() {
   const SOUNDS: [Sfx, string][] = [["tap", "Tap"], ["tab", "Tab"], ["toggle", "Toggle"], ["nav", "Navigate"], ["confirm", "Confirm"], ["success", "Success"], ["send", "Send"], ["pulse", "Core pulse"], ["boot", "Boot"], ["error", "Error"]];
   return (
     <>
-      <Head n="03 — Sound & motion" title="Feel" sub="Every click, tab and toggle has its own sound, and every screen has its own transition. Sounds are synthesised live — nothing is downloaded." />
+      <Head n="04 — Sound & motion" title="Feel" sub="Every click, tab and toggle has its own sound, and every screen has its own transition. Sounds are synthesised live — nothing is downloaded." />
       <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
         <div className="row" style={{ gap: 12 }}>
           <span style={{ flexGrow: 1 }}>
@@ -277,7 +278,7 @@ function Data() {
   const LABELS: [string, string][] = [["flows", "Flows"], ["inbox", "Inbox items"], ["streams", "Income streams"], ["entries", "Money entries"], ["watch", "Watchlist"], ["posts", "Posts"], ["art", "Artworks"], ["chats", "Chat messages"]];
   return (
     <>
-      <Head n="04 — Data & alerts" title="Your stuff, your computer" sub="Everything lives in one folder on this machine. Back it up, move it to a new computer, or switch on desktop alerts." />
+      <Head n="05 — Data & alerts" title="Your stuff, your computer" sub="Everything lives in one folder on this machine. Back it up, move it to a new computer, or switch on desktop alerts." />
       <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
         <div className="row" style={{ gap: 12 }}>
           <span style={{ flexGrow: 1 }}>
@@ -313,6 +314,104 @@ function Data() {
           <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => e.target.files?.[0] && void restore(e.target.files[0])} />
         </div>
         {info && <div className="mono muted" style={{ fontSize: 11 }}>Data folder: {info.dataDir}</div>}
+      </div>
+    </>
+  );
+}
+
+interface ModelUse { model: string; calls: number; input: number; output: number; fallbacks: number }
+interface UsageData {
+  today: ModelUse[];
+  week: ModelUse[];
+  daily: { day: string; perModel: Record<string, number> }[];
+  recent: { at: string; model: string; key: number; agent?: string; input: number; output: number; ms: number; outcome: "ok" | "fallback" | "error"; reason?: string }[];
+  cooling: { key: number; model: string; seconds: number }[];
+  keys: number;
+}
+const SHORT = (m: string) => m.replace("claude-", "").replace(/-(\d+)-(\d+)$/, " $1.$2").replace(/-(\d+)$/, " $1");
+const TONE: Record<string, string> = { "claude-opus-5-5": "#FF2B3A", "claude-sonnet-5-5": "#F4F4F5", "claude-haiku-4-5": "#71717A" };
+const tok = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n));
+
+function Router() {
+  const [u, setU] = useState<UsageData | null>(null);
+  const load = () => api<UsageData>("/api/usage").then(setU).catch(() => {});
+  useEffect(() => {
+    void load();
+    const t = window.setInterval(() => void load(), 5000);
+    return () => window.clearInterval(t);
+  }, []);
+  if (!u) return <div className="muted">Loading…</div>;
+  const max = Math.max(1, ...u.daily.map((d) => Object.values(d.perModel).reduce((a, b) => a + b, 0)));
+  const fallbacks = u.week.reduce((a, m) => a + m.fallbacks, 0);
+  return (
+    <>
+      <Head n="03 — Router & usage" title="Never stuck on a limit" sub="Every Claude request walks a chain — Opus, then Sonnet, then Haiku, across all your keys. When one hits a rate limit it cools down and the next request skips straight past it. Here’s what that looked like." />
+      <div className="k3" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+        {(u.week.length ? u.week : [{ model: "claude-opus-5-5", calls: 0, input: 0, output: 0, fallbacks: 0 }]).map((m) => {
+          const t = u.today.find((x) => x.model === m.model);
+          return (
+            <div key={m.model} className="card" style={{ padding: "14px 16px" }}>
+              <div className="row" style={{ gap: 8 }}>
+                <i style={{ width: 8, height: 8, borderRadius: "50%", background: TONE[m.model] ?? "#A1A1AA", boxShadow: `0 0 8px ${TONE[m.model] ?? "#A1A1AA"}` }} />
+                <span className="mono" style={{ fontSize: 11, letterSpacing: ".08em" }}>{SHORT(m.model).toUpperCase()}</span>
+              </div>
+              <div className="disp" style={{ fontSize: 26, fontWeight: 300, marginTop: 8 }}>{tok((t?.input ?? 0) + (t?.output ?? 0))}</div>
+              <div className="muted" style={{ fontSize: 11 }}>tokens today · {t?.calls ?? 0} replies</div>
+              <div className="mono muted" style={{ fontSize: 10, marginTop: 6 }}>7 DAYS {tok(m.input + m.output)} · {m.calls} replies{m.fallbacks ? ` · ${m.fallbacks} skipped` : ""}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="card" style={{ padding: "18px 20px", marginTop: 14 }}>
+        <div className="row" style={{ marginBottom: 12 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, flexGrow: 1 }}>Last 7 days</span>
+          <span className="mono muted" style={{ fontSize: 10 }}>{fallbacks} AUTOMATIC FALLBACK{fallbacks === 1 ? "" : "S"}</span>
+        </div>
+        <div className="row" style={{ alignItems: "flex-end", gap: 10, height: 130 }}>
+          {u.daily.map((d, i) => (
+            <div key={d.day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, height: "100%", justifyContent: "flex-end" }}>
+              <div style={{ width: "100%", display: "flex", flexDirection: "column-reverse", borderRadius: 6, overflow: "hidden", height: `${Math.max(2, (Object.values(d.perModel).reduce((a, b) => a + b, 0) / max) * 100)}px`, transformOrigin: "bottom", animation: `grow .9s ${0.1 + i * 0.05}s cubic-bezier(.2,.8,.2,1) both`, background: "rgba(255,255,255,0.05)" }}>
+                {Object.entries(d.perModel).map(([m, v]) => <span key={m} title={`${SHORT(m)}: ${tok(v)}`} style={{ flexGrow: v, background: TONE[m] ?? "#A1A1AA", opacity: 0.85 }} />)}
+              </div>
+              <span className="mono muted" style={{ fontSize: 9 }}>{new Date(d.day).toLocaleDateString(undefined, { weekday: "short" }).toUpperCase()}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card" style={{ padding: "18px 20px", marginTop: 14 }}>
+        <div className="row" style={{ marginBottom: 10 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, flexGrow: 1 }}>Cooling down</span>
+          {u.cooling.length > 0 && (
+            <button type="button" className="chip" onClick={async () => (await api("/api/usage/reset-cooling", { body: {} }), void load())}>
+              Retry them now
+            </button>
+          )}
+        </div>
+        {!u.cooling.length ? (
+          <div className="muted" style={{ fontSize: 13 }}>Everything’s available. {u.keys < 2 ? "Tip: add a backup key in API keys so a limit on one never stops you." : `${u.keys} keys in rotation.`}</div>
+        ) : (
+          u.cooling.map((c) => (
+            <div key={`${c.key}${c.model}`} className="row mono" style={{ fontSize: 12, padding: "4px 0" }}>
+              <span style={{ color: "#FF2B3A" }}>●</span>
+              <span style={{ flexGrow: 1 }}>{SHORT(c.model)} · key {c.key}</span>
+              <span className="muted">{c.seconds}s</span>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="card" style={{ padding: "18px 20px", marginTop: 14 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Recent requests</div>
+        {!u.recent.length && <div className="muted" style={{ fontSize: 13 }}>Nothing yet — chat with an agent and it’ll show up here.</div>}
+        {u.recent.map((r, i) => (
+          <div key={i} className="row mono" style={{ fontSize: 11, padding: "5px 0", borderTop: i ? "1px solid rgba(255,255,255,0.05)" : undefined, gap: 10 }}>
+            <span style={{ color: r.outcome === "ok" ? "#F4F4F5" : "#FF2B3A", width: 12 }}>{r.outcome === "ok" ? "●" : r.outcome === "fallback" ? "↷" : "✖"}</span>
+            <span className="muted" style={{ width: 64 }}>{new Date(r.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+            <span style={{ width: 92 }}>{SHORT(r.model)}</span>
+            <span className="muted" style={{ width: 60 }}>{r.agent ?? ""}</span>
+            <span style={{ flexGrow: 1, color: r.outcome === "ok" ? "#A1A1AA" : "#FF5A66", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.outcome === "ok" ? `${tok(r.input)} in · ${tok(r.output)} out` : r.reason}</span>
+            <span className="muted">{(r.ms / 1000).toFixed(1)}s</span>
+          </div>
+        ))}
       </div>
     </>
   );

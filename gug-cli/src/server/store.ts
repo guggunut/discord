@@ -9,6 +9,7 @@ import { emptyMarkets, type Markets } from "./markets.js";
 import { emptyStudio, type Studio } from "./studio.js";
 import { emptyGrowth, type Growth } from "./growth.js";
 import { emptyMemory, type Memory } from "./memory.js";
+import type { Usage } from "./engines/claude.js";
 
 export interface Prefs {
   engine: EngineId;
@@ -39,11 +40,12 @@ export interface DB {
   studio: Studio;
   growth: Growth;
   memory: Memory;
+  usage: Usage[];
 }
 
 export const defaultPrefs = (): Prefs => ({ engine: "auto", codePermission: "acceptEdits", localUrl: "http://127.0.0.1:11434", localModel: "", agents: {} });
 
-const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {}, flows: [], inbox: [], ventures: emptyVentures(), markets: emptyMarkets(), studio: emptyStudio(), growth: emptyGrowth(), memory: emptyMemory() });
+const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {}, flows: [], inbox: [], ventures: emptyVentures(), markets: emptyMarkets(), studio: emptyStudio(), growth: emptyGrowth(), memory: emptyMemory(), usage: [] });
 
 export class Store {
   data: DB;

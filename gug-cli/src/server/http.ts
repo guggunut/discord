@@ -36,6 +36,7 @@ import { makeBackup, restoreBackup } from "./backup.js";
 import { toolsFor } from "./tools.js";
 import { briefing } from "./today.js";
 import { addFact } from "./memory.js";
+import { coolingStatus, resetCooling } from "./engines/claude.js";
 import { chat, roundtable, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -560,6 +561,32 @@ export function createApp(store: Store) {
   app.delete("/api/memory/facts/:id", (req, res) => {
     store.data.memory.facts = store.data.memory.facts.filter((f) => f.id !== String(req.params.id));
     store.save();
+    res.json({ ok: true });
+  });
+
+  // ---------- router usage ----------
+  app.get("/api/usage", (_req, res) => {
+    const now = Date.now();
+    const dayKey = (iso: string) => iso.slice(0, 10);
+    const days = Array.from({ length: 7 }, (_, i) => new Date(now - (6 - i) * 864e5).toISOString().slice(0, 10));
+    const week = store.data.usage.filter((u) => dayKey(u.at) >= days[0]);
+    const models = [...new Set(week.map((u) => u.model))];
+    const by = (list: typeof week) =>
+      models.map((m) => {
+        const l = list.filter((u) => u.model === m);
+        return { model: m, calls: l.filter((u) => u.outcome === "ok").length, input: l.reduce((a, u) => a + u.input, 0), output: l.reduce((a, u) => a + u.output, 0), fallbacks: l.filter((u) => u.outcome === "fallback").length };
+      });
+    res.json({
+      today: by(week.filter((u) => dayKey(u.at) === days[6])),
+      week: by(week),
+      daily: days.map((d) => ({ day: d, perModel: Object.fromEntries(models.map((m) => [m, week.filter((u) => dayKey(u.at) === d && u.model === m).reduce((a, u) => a + u.input + u.output, 0)])) })),
+      recent: store.data.usage.slice(-25).reverse(),
+      cooling: coolingStatus(claudeKeys(store)),
+      keys: claudeKeys(store).length,
+    });
+  });
+  app.post("/api/usage/reset-cooling", (_req, res) => {
+    resetCooling();
     res.json({ ok: true });
   });
 

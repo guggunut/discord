@@ -58,20 +58,79 @@ export interface ClaudeRun {
 
 const MAX_TOOL_TURNS = 8;
 
+/** One model call, for the router's usage panel. */
+export interface Usage {
+  at: string;
+  model: string;
+  key: number; // 1-based key slot
+  agent?: string;
+  input: number;
+  output: number;
+  ms: number;
+  outcome: "ok" | "fallback" | "error";
+  reason?: string;
+}
+let usageSink: (u: Usage) => void = () => {};
+export const setUsageSink = (fn: (u: Usage) => void) => void (usageSink = fn);
+
+// Key+model pairs that just hit a limit are skipped until they cool down, so the
+// next request goes straight to something that works instead of waiting on a 429.
+const cooling = new Map<string, number>();
+const fp = (key: string) => key.slice(-10);
+const coolId = (key: string, model: string) => `${fp(key)}:${model}`;
+export function cooldownFor(err: unknown): number {
+  if (err instanceof Anthropic.RateLimitError) {
+    const ra = Number(err.headers?.get?.("retry-after"));
+    return Math.min(300, Number.isFinite(ra) && ra > 0 ? ra : 30) * 1000;
+  }
+  if (err instanceof Anthropic.InternalServerError) return 15_000;
+  if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) return 10 * 60_000;
+  return 0;
+}
+/** What's cooling down right now, for the given keys (slots are 1-based). */
+export function coolingStatus(keys: string[]): { key: number; model: string; seconds: number }[] {
+  const now = Date.now();
+  const out: { key: number; model: string; seconds: number }[] = [];
+  for (const [id, until] of cooling) {
+    if (until <= now) {
+      cooling.delete(id);
+      continue;
+    }
+    const [f, model] = [id.slice(0, id.lastIndexOf(":")), id.slice(id.lastIndexOf(":") + 1)];
+    const k = keys.findIndex((x) => fp(x) === f);
+    if (k >= 0) out.push({ key: k + 1, model, seconds: Math.ceil((until - now) / 1000) });
+  }
+  return out;
+}
+export const resetCooling = () => cooling.clear();
+
 export async function* runClaude(run: ClaudeRun): AsyncGenerator<GugEvent> {
   if (run.keys.length === 0) {
     yield { type: "error", agent: run.agent, message: "No Claude API key yet. Add one in Settings → API keys (or the Setup guide)." };
     return;
   }
   const chain = chainFor(run.mode);
+  const labelOf = (step: Step, k: number) => (run.keys.length > 1 ? `${step.model} (key ${k + 1})` : step.model);
+  // Every model × key, in preference order, with anything cooling down moved to the back.
+  const all = chain.flatMap((step) => run.keys.map((_, k) => ({ step, k })));
+  const isCool = (a: { step: Step; k: number }) => (cooling.get(coolId(run.keys[a.k], a.step.model)) ?? 0) > Date.now();
+  const attempts = [...all.filter((a) => !isCool(a)), ...all.filter(isCool)];
   let previous: string | undefined;
   let reason = "";
-  for (const step of chain) {
-    for (let k = 0; k < run.keys.length; k++) {
-      const client = new Anthropic({ apiKey: run.keys[k], maxRetries: 1 });
-      const label = run.keys.length > 1 ? `${step.model} (key ${k + 1})` : step.model;
+  if (attempts[0] !== all[0]) {
+    previous = labelOf(all[0].step, all[0].k);
+    reason = "cooling down after a recent limit";
+  }
+  for (const [n, { step, k }] of attempts.entries()) {
+    {
+      // The chain is the retry: move on at once, and only let the SDK retry the last option.
+      const client = new Anthropic({ apiKey: run.keys[k], maxRetries: n === attempts.length - 1 ? 1 : 0 });
+      const label = labelOf(step, k);
       if (previous) yield { type: "fallback", from: previous, to: label, reason };
       let emitted = false;
+      const started = Date.now();
+      let input = 0;
+      let output = 0;
       try {
         const messages = [...run.messages];
         const defs = run.tools?.map((t) => t.def);
@@ -102,7 +161,10 @@ export async function* runClaude(run: ClaudeRun): AsyncGenerator<GugEvent> {
             }
           }
           const final = await stream.finalMessage();
+          input += final.usage?.input_tokens ?? 0;
+          output += final.usage?.output_tokens ?? 0;
           if (final.stop_reason === "refusal") {
+            usageSink({ at: new Date().toISOString(), model: step.model, key: k + 1, agent: run.agent, input, output, ms: Date.now() - started, outcome: "error", reason: "refused" });
             yield { type: "error", agent: run.agent, message: "Claude declined this request." };
             return;
           }
@@ -131,16 +193,21 @@ export async function* runClaude(run: ClaudeRun): AsyncGenerator<GugEvent> {
             continue;
           }
           if (final.stop_reason === "max_tokens") yield { type: "text", agent: run.agent, text: "\n\n_(Stopped at the length limit.)_" };
+          usageSink({ at: new Date().toISOString(), model: step.model, key: k + 1, agent: run.agent, input, output, ms: Date.now() - started, outcome: "ok" });
           yield { type: "done", engine: "claude", model: final.model, agent: run.agent };
           return;
         }
       } catch (err) {
         if (run.signal?.aborted) return;
+        const cool = cooldownFor(err);
+        if (cool) cooling.set(coolId(run.keys[k], step.model), Date.now() + cool);
         // Once text has streamed we can't splice another model in cleanly: report it instead.
         if (emitted || !isRetryable(err)) {
+          usageSink({ at: new Date().toISOString(), model: step.model, key: k + 1, agent: run.agent, input, output, ms: Date.now() - started, outcome: "error", reason: describeError(err) });
           yield { type: "error", agent: run.agent, message: describeError(err) };
           return;
         }
+        usageSink({ at: new Date().toISOString(), model: step.model, key: k + 1, agent: run.agent, input, output, ms: Date.now() - started, outcome: "fallback", reason: describeError(err) });
         previous = label;
         reason = describeError(err);
       }

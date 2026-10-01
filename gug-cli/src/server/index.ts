@@ -6,10 +6,16 @@ import { startScheduler } from "./flows.js";
 import { startAlertWatcher } from "./markets.js";
 import { setMemoryProvider } from "./agents.js";
 import { memoryText } from "./memory.js";
+import { setUsageSink } from "./engines/claude.js";
 
 export function startServer(opts: { port?: number; host?: string; quiet?: boolean } = {}) {
   const store = new Store(paths.db());
   setMemoryProvider(() => memoryText(store));
+  setUsageSink((u) => {
+    store.data.usage.push(u);
+    if (store.data.usage.length > 2000) store.data.usage = store.data.usage.slice(-1500);
+    store.save();
+  });
   getVaultKey();
   getAccessToken();
   const app = createApp(store);

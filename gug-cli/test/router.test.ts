@@ -171,3 +171,31 @@ test("shared memory reaches every agent's instructions", async () => {
   assert.match(sys, /- Prefers UK spelling/);
   setMemoryProvider(() => "");
 });
+
+test("a model that just hit a rate limit is skipped until it cools down, and usage is logged", async () => {
+  const { runClaude, setUsageSink, coolingStatus, resetCooling } = await import("../src/server/engines/claude.ts");
+  resetCooling();
+  const usage: any[] = [];
+  setUsageSink((u) => usage.push(u));
+  const run = async () => {
+    const events: any[] = [];
+    for await (const ev of runClaude({ keys: ["sk-ant-test-key"], system: "t", messages: [{ role: "user", content: "hi" }], mode: "deep", agent: "atlas" })) events.push(ev);
+    return events;
+  };
+  const before = seen.length;
+  await run();
+  assert.deepEqual(seen.slice(before), ["claude-opus-5-5", "claude-sonnet-5-5"]);
+  assert.deepEqual(usage.map((u) => [u.model, u.outcome]), [["claude-opus-5-5", "fallback"], ["claude-sonnet-5-5", "ok"]]);
+  assert.ok(usage[1].output > 0 && usage[1].agent === "atlas");
+  const cool = coolingStatus(["sk-ant-test-key"]);
+  assert.equal(cool.length, 1);
+  assert.equal(cool[0].model, "claude-opus-5-5");
+  assert.ok(cool[0].seconds > 0 && cool[0].seconds <= 30);
+
+  const mid = seen.length;
+  const second = await run();
+  assert.deepEqual(seen.slice(mid), ["claude-sonnet-5-5"], "went straight to the model that works");
+  assert.ok(second.some((e) => e.type === "fallback" && /cooling down/.test(e.reason)));
+  setUsageSink(() => {});
+  resetCooling();
+});
