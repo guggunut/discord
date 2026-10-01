@@ -41,6 +41,7 @@ export function Markets() {
   const [reading, setReading] = useState(false);
   const [qty, setQty] = useState("1");
   const [alert, setAlertDraft] = useState({ above: "", below: "" });
+  const [news, setNews] = useState<{ title: string; link: string; at: string }[]>([]);
   const abortRef = useRef<() => void>(() => {});
 
   const load = async (s = span) => {
@@ -73,6 +74,10 @@ export function Markets() {
       .then(setCur)
       .catch((e) => (setCur(null), setCurErr((e as Error).message)));
   }, [sel?.symbol, sel?.kind, span]);
+  useEffect(() => {
+    setNews([]);
+    if (sel) void api<{ title: string; link: string; at: string }[]>(`/api/markets/news?symbol=${encodeURIComponent(sel.symbol)}&kind=${sel.kind}`).then(setNews).catch(() => {});
+  }, [sel?.symbol, sel?.kind]);
 
   const add = async (symbol: string) => {
     if (!symbol.trim()) return;
@@ -253,6 +258,21 @@ export function Markets() {
               </div>
             )}
           </div>
+
+          {sel && cur && news.length > 0 && (
+            <div className="card rise d4" style={{ padding: "16px 20px" }}>
+              <div className="row" style={{ marginBottom: 6 }}>
+                <h2 className="disp" style={{ margin: 0, fontSize: 14, fontWeight: 400, flexGrow: 1 }}>Headlines · {cur.label}</h2>
+                <span className="mono muted" style={{ fontSize: 9 }}>YAHOO FINANCE</span>
+              </div>
+              {news.slice(0, 5).map((h) => (
+                <a key={h.link} href={h.link} target="_blank" rel="noopener noreferrer" className="row" style={{ gap: 10, padding: "8px 0", borderTop: "1px solid rgba(255,255,255,0.05)", color: "#E4E4E7", textDecoration: "none", fontSize: 13 }}>
+                  <span style={{ flexGrow: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</span>
+                  <span className="mono muted" style={{ fontSize: 10, flexShrink: 0 }}>{h.at ? new Date(h.at).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : ""}</span>
+                </a>
+              ))}
+            </div>
+          )}
 
           {sel && cur && (
             <div className="card hot rise d4" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>

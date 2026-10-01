@@ -29,7 +29,7 @@ import {
 import { control, nowPlaying, type MediaAction } from "./media.js";
 import { TEMPLATES, runFlow, validateFlow } from "./flows.js";
 import { reviewWithLedger, sampleData, summarise, validateEntry, validateStream, type Range } from "./ventures.js";
-import { paperTrade, parseSymbol, quantRead, quote, setAlert, stats, type AssetKind, type Span } from "./markets.js";
+import { headlines, paperTrade, parseSymbol, quantRead, quote, setAlert, stats, type AssetKind, type Span } from "./markets.js";
 import { STYLES, deleteArt, drawWithMuse, readArt, scriptWithVox } from "./studio.js";
 import { PLATFORMS, draftCaption, growthStats, planWeek, publishToDiscord, validatePost, type Platform } from "./growth.js";
 import { makeBackup, restoreBackup } from "./backup.js";
@@ -455,6 +455,11 @@ export function createApp(store: Store) {
     const w = parseSymbol(str(req.query.symbol, 60), asKind(req.query.kind));
     const q = await quote(w, asSpan(req.query.span));
     res.json({ ...q, stats: stats(q.history) });
+  });
+  app.get("/api/markets/news", async (req, res) => {
+    const w = parseSymbol(str(req.query.symbol, 60), asKind(req.query.kind));
+    const known = mk().watch.find((x) => x.symbol === w.symbol && x.kind === w.kind);
+    res.json(await headlines(known ?? w));
   });
   app.post("/api/markets/watch", async (req, res) => {
     if (mk().watch.length >= 30) throw new HttpError(400, "Your watchlist is full (30). Remove one first.");

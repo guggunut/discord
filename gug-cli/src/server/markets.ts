@@ -142,6 +142,55 @@ export async function quote(w: Omit<WatchItem, "addedAt">, span: Span = "1m"): P
   }
 }
 
+// ---- headlines (Yahoo Finance RSS; public, no key) ----
+export interface Headline {
+  title: string;
+  link: string;
+  at: string;
+}
+const NEWS = () => process.env.GUG_NEWS_URL ?? "https://feeds.finance.yahoo.com";
+const newsCache = new Map<string, { at: number; items: Headline[] }>();
+const decode = (s: string) =>
+  s
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+
+/** Parses RSS <item>s into headlines; only http(s) links survive. */
+export function parseRss(xml: string, max = 8): Headline[] {
+  const out: Headline[] = [];
+  for (const m of xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)) {
+    const tag = (t: string) => decode(m[0].match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)<\\/${t}>`, "i"))?.[1] ?? "");
+    const title = tag("title").slice(0, 200);
+    const link = tag("link");
+    const date = Date.parse(tag("pubDate"));
+    if (!title || !/^https?:\/\//.test(link)) continue;
+    out.push({ title, link, at: Number.isNaN(date) ? "" : new Date(date).toISOString() });
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+export async function headlines(w: Pick<WatchItem, "symbol" | "kind" | "label">): Promise<Headline[]> {
+  const sym = w.kind === "crypto" ? `${w.label.toUpperCase()}-USD` : w.symbol;
+  const hit = newsCache.get(sym);
+  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.items;
+  try {
+    const res = await fetch(`${NEWS()}/rss/2.0/headline?s=${encodeURIComponent(sym)}&region=US&lang=en-US`, { headers: { "user-agent": UA["user-agent"] }, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(String(res.status));
+    const items = parseRss(await res.text());
+    newsCache.set(sym, { at: Date.now(), items });
+    return items;
+  } catch {
+    return hit?.items ?? [];
+  }
+}
+
 /** Plain stats Quant (and the UI) can reason about. */
 export function stats(history: [number, number][]) {
   const px = history.map((p) => p[1]).filter((n) => Number.isFinite(n) && n > 0);
@@ -223,8 +272,9 @@ export function startAlertWatcher(store: Store): () => void {
 /** Quant explains what the chart shows, in plain English. */
 export async function* quantRead(store: Store, q: Quote, span: Span, question: string, signal?: AbortSignal): AsyncGenerator<GugEvent> {
   const s = stats(q.history);
-  const facts = { asset: `${q.name} (${q.label})`, kind: q.kind, currency: q.currency, price: q.price, todayChangePct: q.changePct, window: span, ...s };
+  const news = (await headlines(q)).slice(0, 6).map((h) => h.title);
+  const facts = { asset: `${q.name} (${q.label})`, kind: q.kind, currency: q.currency, price: q.price, todayChangePct: q.changePct, window: span, ...s, recentHeadlines: news };
   const ask = question.trim() || "What has this done over this window, how volatile is it, and what should a beginner keep in mind before buying?";
-  const prompt = `${ask}\n\nData (computed from public prices, may be delayed):\n${JSON.stringify(facts)}\n\nExplain in plain English using these numbers, under 200 words. Don't predict prices or tell me to buy or sell; end with a one-line reminder that this isn't financial advice.`;
+  const prompt = `${ask}\n\nData (computed from public prices, may be delayed):\n${JSON.stringify(facts)}\n\nExplain in plain English using these numbers (and the headlines, if they plausibly explain a move — say when you're unsure), under 200 words. Don't predict prices or tell me to buy or sell; end with a one-line reminder that this isn't financial advice.`;
   yield* runClaude({ keys: claudeKeys(store), system: systemFor(agentById("quant")!), messages: [{ role: "user", content: prompt }], mode: "deep", agent: "quant", signal, maxTokens: 1500 });
 }

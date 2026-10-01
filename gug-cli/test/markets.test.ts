@@ -99,3 +99,16 @@ test("known coins keep their ticker however they're typed", () => {
   assert.equal(parseSymbol("eth").label, "ETH");
   assert.equal(parseSymbol("pepe", "crypto").label, "pepe");
 });
+
+test("RSS headlines are parsed safely", async () => {
+  const { parseRss } = await import("../src/server/markets.ts");
+  const xml = `<rss><channel><title>Yahoo</title>
+    <item><title><![CDATA[Apple &amp; Nvidia rally <b>today</b>]]></title><link>https://finance.yahoo.com/a</link><pubDate>Wed, 30 Sep 2026 14:00:00 GMT</pubDate></item>
+    <item><title>Sneaky</title><link>javascript:alert(1)</link></item>
+    <item><title>No date</title><link>https://x.test/b</link></item>
+  </channel></rss>`;
+  const h = parseRss(xml);
+  assert.deepEqual(h.map((x) => x.title), ["Apple & Nvidia rally today", "No date"]);
+  assert.equal(h[0].at, "2026-09-30T14:00:00.000Z");
+  assert.equal(h[1].at, "");
+});
