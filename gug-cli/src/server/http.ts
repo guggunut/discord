@@ -39,6 +39,7 @@ import { addFact } from "./memory.js";
 import { coolingStatus, resetCooling } from "./engines/claude.js";
 import { TEMPLATES as PROJECT_TEMPLATES, templateById as projectTemplate, zip } from "./templates.js";
 import { focusStats } from "./focus.js";
+import { ask, bearer, createToken, listTokens } from "./integrations.js";
 import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -79,6 +80,15 @@ export function createApp(store: Store) {
     res.set({ "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "permissions-policy": "camera=(), geolocation=(), microphone=(self)" });
     next();
   });
+  // Scripts on this computer, with a Bearer token instead of the browser cookie.
+  // Registered before the CSRF guard: there is no ambient credential to abuse here.
+  app.get("/api/v1/agents", bearer(store), (_req, res) => res.json(AGENTS.map(({ id, name, role }) => ({ id, name, role }))));
+  app.post("/api/v1/ask", bearer(store), async (req, res) => {
+    const ac = new AbortController();
+    res.on("close", () => ac.abort());
+    res.json(await ask(store, req.body ?? {}, ac.signal));
+  });
+
   app.use("/api", csrfGuard);
 
   app.get("/api/health", (req, res) => res.json({ ok: true, name: "gug-cli", version: "0.1.0", unlocked: isUnlocked(req) }));
@@ -637,6 +647,15 @@ export function createApp(store: Store) {
     store.data.focus = [...store.data.focus, { at: new Date().toISOString(), minutes, label: str(req.body?.label, 60) }].slice(-1000);
     store.save();
     res.json(focusStats(store));
+  });
+
+  // ---------- local API tokens ----------
+  app.get("/api/integrations", (_req, res) => res.json(listTokens(store)));
+  app.post("/api/integrations", (req, res) => res.json(createToken(store, str(req.body?.name, 40))));
+  app.delete("/api/integrations/:id", (req, res) => {
+    store.data.tokens = store.data.tokens.filter((t) => t.id !== String(req.params.id));
+    store.save();
+    res.json({ ok: true });
   });
 
   // ---------- media ----------

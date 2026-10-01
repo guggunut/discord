@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { useApp } from "../App";
-import { Brand, Icon, P } from "../ui";
+import { Brand, Icon, P, Seg } from "../ui";
 
 interface AppsState {
   anthropic: { connected: boolean; keys: number };
@@ -231,6 +231,8 @@ export function Apps() {
         </div>
       </div>
 
+      <LocalApi />
+
       <div>
         <div className="eyebrow" style={{ marginBottom: 12 }}>Coming soon</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 14 }}>
@@ -244,6 +246,108 @@ export function Apps() {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface Tok { id: string; name: string; createdAt: string; lastUsedAt?: string; uses: number }
+
+/** Tokens for your own scripts (e.g. a Discord bot on this PC) to ask the agents. */
+function LocalApi() {
+  const { toast } = useApp();
+  const [tokens, setTokens] = useState<Tok[]>([]);
+  const [name, setName] = useState("Discord bot");
+  const [fresh, setFresh] = useState("");
+  const [lang, setLang] = useState<"python" | "curl">("python");
+  const load = () => api<Tok[]>("/api/integrations").then(setTokens).catch(() => {});
+  useEffect(() => void load(), []);
+  const port = location.port || "4747";
+  const tok = fresh || "gug_your_token_here";
+  const snippet =
+    lang === "python"
+      ? `# Slash command for a discord.py bot on this computer (e.g. Weididdy Bot).
+# Put it next to the other @tree.command functions. aiohttp comes with discord.py.
+import aiohttp
+
+GUG_URL = "http://127.0.0.1:${port}/api/v1/ask"
+GUG_TOKEN = os.getenv("GUG_TOKEN", "${tok}")  # better: GUG_TOKEN=… in your .env
+
+@tree.command(description="Ask one of your GUG-cli agents")
+@app_commands.describe(agent="atlas, ledger, quant, muse, echo, scout, sage…", question="What to ask")
+async def ask(interaction: discord.Interaction, agent: str, question: str):
+    await interaction.response.defer(thinking=True)
+    async with aiohttp.ClientSession() as s:
+        async with s.post(GUG_URL, json={"agent": agent.lower(), "text": question},
+                          headers={"Authorization": f"Bearer {GUG_TOKEN}"}) as r:
+            data = await r.json()
+    answer = data.get("text") or data.get("error", "No answer.")
+    await interaction.followup.send(answer[:1900], allowed_mentions=discord.AllowedMentions.none())`
+      : `curl -s http://127.0.0.1:${port}/api/v1/ask \\
+  -H "Authorization: Bearer ${tok}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"agent":"atlas","text":"What should I focus on today?"}'`;
+  const create = async () => {
+    try {
+      const r = await api<{ token: string }>("/api/integrations", { body: { name } });
+      setFresh(r.token);
+      void load();
+    } catch (e) {
+      toast((e as Error).message, "err");
+    }
+  };
+  const copy = async (t: string, what: string) => {
+    try {
+      await navigator.clipboard.writeText(t);
+      toast(`${what} copied.`);
+    } catch {
+      toast("Couldn’t copy — select it and copy by hand.", "err");
+    }
+  };
+  return (
+    <div className="card rise d5 cols" style={{ padding: 22, display: "grid", ["--cols" as string]: "minmax(0, 340px) minmax(0, 1fr)", gap: 22 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="row">
+          <Brand name="discord" size={40} variant="red" />
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>Local API</div>
+            <div className="muted" style={{ fontSize: 12 }}>Let your own scripts ask the agents</div>
+          </div>
+        </div>
+        <p className="muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.55 }}>
+          Your Discord bot, a shortcut or a scheduled script on <b>this computer</b> can ask any agent a question. Tokens can only ask — agents look things up but never change your data — and are limited to 30 requests a minute.
+        </p>
+        <div className="row" style={{ gap: 6 }}>
+          <input aria-label="Token name" className="field" value={name} onChange={(e) => setName(e.target.value)} style={{ height: 38, fontSize: 13, flexGrow: 1 }} />
+          <button type="button" className="btn btn-red" style={{ height: 38 }} onClick={() => void create()}>Create token</button>
+        </div>
+        {fresh && (
+          <div className="tx-drop" style={{ padding: 12, borderRadius: 12, border: "1px solid rgba(255,43,58,0.5)", background: "rgba(255,43,58,0.07)" }}>
+            <div className="eyebrow" style={{ fontSize: 9, color: "#FF5A66", marginBottom: 6 }}>Copy it now — it won’t be shown again</div>
+            <div className="row" style={{ gap: 6 }}>
+              <code className="mono" style={{ fontSize: 11, flexGrow: 1, overflowWrap: "anywhere" }}>{fresh}</code>
+              <button type="button" className="chip" onClick={() => void copy(fresh, "Token")}><Icon d={P.copy} size={12} /></button>
+            </div>
+          </div>
+        )}
+        {tokens.map((t) => (
+          <div key={t.id} className="row" style={{ fontSize: 13, gap: 8, padding: "6px 0", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <span style={{ flexGrow: 1 }}>
+              <b style={{ fontWeight: 600 }}>{t.name}</b>
+              <span className="mono muted" style={{ display: "block", fontSize: 10 }}>{t.uses} requests{t.lastUsedAt ? ` · last ${new Date(t.lastUsedAt).toLocaleString()}` : " · never used"}</span>
+            </span>
+            <button type="button" className="chip" style={{ color: "#FF5A66" }} onClick={async () => (await api(`/api/integrations/${t.id}`, { method: "DELETE" }), void load(), toast(`Revoked ${t.name}.`))}>Revoke</button>
+          </div>
+        ))}
+      </div>
+      <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="row">
+          <Seg label="Example" value={lang} width={220} options={[["python", "Discord bot"], ["curl", "curl"]]} onChange={setLang} />
+          <span style={{ flexGrow: 1 }} />
+          <button type="button" className="chip" onClick={() => void copy(snippet, "Example")}><Icon d={P.copy} size={12} /> Copy</button>
+        </div>
+        <pre className="mono" style={{ margin: 0, padding: 14, borderRadius: 14, background: "#060607", border: "1px solid rgba(255,255,255,0.07)", fontSize: 11.5, lineHeight: 1.6, overflowX: "auto", color: "#D4D4D8" }}>{snippet}</pre>
+        <p className="muted" style={{ margin: 0, fontSize: 11 }}>POST /api/v1/ask with {"{"}agent, text, mode?{"}"} → {"{"}agent, text, model, tools{"}"} · GET /api/v1/agents lists the agents.</p>
       </div>
     </div>
   );
