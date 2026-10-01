@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, type Engine } from "../api";
 import { useApp } from "../App";
 import { play, setSfx, type Sfx } from "../sfx";
+import { Bars3D } from "../Bars3D";
 import { Brand, Icon, P, Seg, Switch, useSfxPrefs } from "../ui";
 
 type Section = "keys" | "engines" | "router" | "sound" | "data";
@@ -367,16 +368,12 @@ function Router() {
           <span style={{ fontSize: 14, fontWeight: 600, flexGrow: 1 }}>Last 7 days</span>
           <span className="mono muted" style={{ fontSize: 10 }}>{fallbacks} AUTOMATIC FALLBACK{fallbacks === 1 ? "" : "S"}</span>
         </div>
-        <div className="row" style={{ alignItems: "flex-end", gap: 10, height: 130 }}>
-          {u.daily.map((d, i) => (
-            <div key={d.day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, height: "100%", justifyContent: "flex-end" }}>
-              <div style={{ width: "100%", display: "flex", flexDirection: "column-reverse", borderRadius: 6, overflow: "hidden", height: `${Math.max(2, (Object.values(d.perModel).reduce((a, b) => a + b, 0) / max) * 100)}px`, transformOrigin: "bottom", animation: `grow .9s ${0.1 + i * 0.05}s cubic-bezier(.2,.8,.2,1) both`, background: "rgba(255,255,255,0.05)" }}>
-                {Object.entries(d.perModel).map(([m, v]) => <span key={m} title={`${SHORT(m)}: ${tok(v)}`} style={{ flexGrow: v, background: TONE[m] ?? "#A1A1AA", opacity: 0.85 }} />)}
-              </div>
-              <span className="mono muted" style={{ fontSize: 9 }}>{new Date(d.day).toLocaleDateString(undefined, { weekday: "short" }).toUpperCase()}</span>
-            </div>
-          ))}
-        </div>
+        <Bars3D
+          height={220}
+          empty="No requests yet."
+          data={u.daily.map((d) => ({ label: new Date(d.day).toLocaleDateString(undefined, { weekday: "short" }), value: Object.values(d.perModel).reduce((x, y) => x + y, 0), parts: Object.entries(d.perModel).map(([m, v]) => ({ name: SHORT(m), value: v })), sub: d.day }))}
+          format={(n) => `${tok(n)} tokens`}
+        />
       </div>
       <div className="card" style={{ padding: "18px 20px", marginTop: 14 }}>
         <div className="row" style={{ marginBottom: 10 }}>

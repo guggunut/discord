@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, stream, type GugEvent } from "../api";
 import { useApp } from "../App";
 import { play } from "../sfx";
+import { Bars3D } from "../Bars3D";
 import { Brand, Icon, P, Seg, Sigil } from "../ui";
 
 type Platform = "instagram" | "tiktok" | "youtube" | "x" | "discord";
@@ -231,16 +232,7 @@ export function Growth() {
 
           <div className="card rise d4" style={{ padding: 18 }}>
             <h2 className="disp" style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 400 }}>Reach by platform</h2>
-            {s.byPlatform.map((p, i) => (
-              <div key={p.platform} className="row" style={{ gap: 12, padding: "6px 0" }}>
-                <Brand name={p.platform} size={28} variant={i === 0 ? "red" : "tint"} />
-                <span style={{ width: 84, fontSize: 13 }}>{PLATFORMS.find(([k]) => k === p.platform)?.[1]}</span>
-                <span style={{ flexGrow: 1, height: 6, borderRadius: 4, background: "rgba(255,255,255,0.05)", overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: `${(p.views / maxPlat) * 100}%`, background: "linear-gradient(90deg,#5E000E,#FF2B3A)", transformOrigin: "left", animation: `growx 1s ${0.2 + i * 0.08}s cubic-bezier(.2,.8,.2,1) both` }} />
-                </span>
-                <span className="mono" style={{ fontSize: 12, width: 60, textAlign: "right" }}>{short(p.views)}</span>
-              </div>
-            ))}
+            <Bars3D height={220} data={s.byPlatform.map((p) => ({ label: PLATFORMS.find(([k]) => k === p.platform)?.[1] ?? p.platform, value: p.views }))} format={(n) => `${short(n)} views`} />
             <p className="muted" style={{ fontSize: 11, margin: "10px 0 0" }}>Log views and likes on posted items to fill this in.</p>
           </div>
 

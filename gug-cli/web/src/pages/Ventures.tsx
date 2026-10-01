@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Bars3D } from "../Bars3D";
 import { fromColumns, fromShopify, isShopify, parseCsv, type ImportEntry } from "../csv";
 import { api, stream, type GugEvent } from "../api";
 import { useApp } from "../App";
@@ -368,18 +369,8 @@ function AreaChart({ points, money }: { points: (Totals & { label: string })[]; 
 }
 
 function Bars({ points, money, range }: { points: (Totals & { label: string })[]; money: (n: number) => string; range: Range }) {
-  const hi = Math.max(1, ...points.map((p) => Math.abs(p.profit)));
   const short = (l: string) => (range === "12m" ? new Date(`${l}-01`).toLocaleString(undefined, { month: "short" }) : l.slice(8));
-  return (
-    <div className="row" style={{ alignItems: "flex-end", height: 210, gap: 8, paddingRight: 10 }}>
-      {points.map((p, i) => (
-        <div key={p.label} title={`${p.label}: ${money(p.profit)}`} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, height: "100%", justifyContent: "flex-end" }}>
-          <div className={`bar3d grow ${p.profit < 0 ? "w" : ""}`} style={{ height: `${Math.max(2, (Math.abs(p.profit) / hi) * 170)}px`, animationDelay: `${0.2 + i * 0.04}s`, opacity: i === points.length - 1 ? 1 : 0.78 }} />
-          <span className="mono muted" style={{ fontSize: 9 }}>{short(p.label)}</span>
-        </div>
-      ))}
-    </div>
-  );
+  return <Bars3D height={240} data={points.map((p) => ({ label: short(p.label), value: p.profit, sub: `${p.label} · ${money(p.revenue)} revenue · ${p.orders} orders` }))} format={(n) => money(n)} />;
 }
 
 function AddStream({ onClose, onSave }: { onClose: () => void; onSave: (b: object) => Promise<unknown> }) {

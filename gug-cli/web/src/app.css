@@ -135,3 +135,22 @@ kbd{display:inline-block;min-width:18px;padding:1px 5px;border-radius:5px;border
 /* While chatting, the message box stays pinned to the bottom of the window. */
 .composer-dock{position:sticky;bottom:14px;z-index:6;background:linear-gradient(180deg,rgba(17,17,19,.92),rgba(8,8,9,.96));backdrop-filter:blur(14px);box-shadow:0 -20px 50px -20px #000,0 20px 50px -20px #000,inset 0 1px 0 rgba(255,255,255,.05)}
 @media (max-width:700px){.composer-dock{bottom:86px}}
+
+/* 3D bar charts */
+.b3-stage{position:relative;perspective:1500px;perspective-origin:50% 30%;display:grid;place-items:center;overflow:hidden;cursor:grab;user-select:none;touch-action:none;border-radius:16px;background:radial-gradient(ellipse at 50% 70%,rgba(255,43,58,.10),transparent 65%)}
+.b3-stage:active{cursor:grabbing}
+.b3-floor{position:relative;transform-style:preserve-3d;transition:transform .3s cubic-bezier(.2,.8,.2,1);background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:16px 16px;border:1px solid rgba(255,255,255,.1);border-radius:10px;box-shadow:0 0 60px -10px rgba(255,43,58,.35)}
+.b3-bar{position:absolute;transform-style:preserve-3d;transition:transform .35s cubic-bezier(.2,1.4,.3,1);cursor:pointer;animation:b3grow 1s var(--d,0s) cubic-bezier(.2,.8,.2,1) both}
+.b3-bar.lift{transform:translateZ(10px)}
+.b3-bar.dim i{opacity:.35}
+.b3-bar.lift .b3-top{box-shadow:0 0 18px 4px rgba(255,43,58,.85)}
+@keyframes b3grow{from{scale:1 1 .02}}
+.b3-seg{position:absolute;inset:0;transform-style:preserve-3d}
+.b3-seg i{position:absolute;transition:opacity .25s}
+.b3-front{left:0;top:100%;transform-origin:top;transform:rotateX(90deg)}
+.b3-side{top:0;transform-origin:left;transform:rotateY(-90deg)}
+.b3-top{left:0;top:0}
+.b3-label{position:absolute;top:calc(100% + 6px);font-size:9px;color:#71717A;text-align:center;pointer-events:none}
+.b3-hud{position:absolute;left:14px;top:10px;display:flex;flex-direction:column;gap:2px;z-index:2;pointer-events:none}
+.b3-hint{position:absolute;right:14px;bottom:8px;font-size:9px;letter-spacing:.1em;color:#52525B;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.b3-bar{animation:none}}
