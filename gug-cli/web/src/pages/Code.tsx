@@ -262,7 +262,7 @@ export function Code() {
 
       <div className="g3 cols" style={{ ["--cols" as string]: "230px minmax(0,1fr) 360px" }}>
         {/* explorer */}
-        <section className="card rise d2" style={{ padding: "14px 10px", display: "flex", flexDirection: "column", gap: 2, alignSelf: "start" }}>
+        <section className="card rise d2 code-explorer" style={{ padding: "14px 10px", display: "flex", flexDirection: "column", gap: 2, alignSelf: "start" }}>
           <div className="eyebrow" style={{ fontSize: 10, padding: "0 8px 8px" }}>Explorer</div>
           <div key={project} className="tx-wipe scroll" style={{ maxHeight: 520 }}>
             {files.map((f) => {
@@ -278,7 +278,7 @@ export function Code() {
             })}
             {!files.length && <div className="muted" style={{ fontSize: 12, padding: 8 }}>Empty. Describe something to build →</div>}
           </div>
-          <div className="mono" style={{ margin: "12px 8px 0", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.07)", fontSize: 10, color: "#52525B", lineHeight: 1.5, overflowWrap: "anywhere" }}>
+          <div className="mono hide-sm" style={{ margin: "12px 8px 0", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.07)", fontSize: 10, color: "#52525B", lineHeight: 1.5, overflowWrap: "anywhere" }}>
             {state.dataDir}/workspaces/{project}
           </div>
         </section>

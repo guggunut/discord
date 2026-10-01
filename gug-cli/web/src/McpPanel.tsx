@@ -1,6 +1,7 @@
 // Connect apps to Forge through MCP (Model Context Protocol): Blender, Roblox
 // Studio, a folder, or any MCP server. Claude Code uses whichever are switched on.
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "./api";
 import { useApp } from "./App";
 import { play } from "./sfx";
@@ -82,7 +83,7 @@ export function McpPanel({ onClose, onChange }: { onClose: () => void; onChange:
   };
   const preset = draft && draft.app !== "custom" ? presets[draft.app] : null;
 
-  return (
+  return createPortal(
     <div className="pal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="pal card pop" role="dialog" aria-label="Connect apps" style={{ width: "min(860px, 100%)", padding: 22, maxHeight: "84vh", overflowY: "auto" }}>
         <div className="row" style={{ marginBottom: 4 }}>
@@ -151,6 +152,7 @@ export function McpPanel({ onClose, onChange }: { onClose: () => void; onChange:
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

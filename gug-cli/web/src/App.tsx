@@ -156,7 +156,7 @@ export function App() {
       <FocusEngine toast={toast} />
       <WhatsNew go={ctx.go} />
       {toastMsg && (
-        <div style={{ position: "fixed", left: 0, right: 0, bottom: 28, display: "flex", justifyContent: "center", zIndex: 95, pointerEvents: "none" }}>
+        <div className="toast-wrap" style={{ position: "fixed", left: 0, right: 0, bottom: 28, display: "flex", justifyContent: "center", zIndex: 130, pointerEvents: "none" }}>
           <div className="card pop" role="status" style={{ padding: "12px 18px", display: "flex", gap: 10, alignItems: "center", borderColor: toastMsg.kind === "err" ? "rgba(255,43,58,0.6)" : "rgba(255,255,255,0.2)" }}>
             <Icon d={toastMsg.kind === "err" ? P.alert : P.check} size={16} color={toastMsg.kind === "err" ? "#FF2B3A" : "#F4F4F5"} />
             <span style={{ fontSize: 13 }}>{toastMsg.text}</span>
