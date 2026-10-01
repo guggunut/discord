@@ -27,7 +27,12 @@ export function setSfx(patch: Partial<SfxPrefs>) {
   }
   listeners.forEach((l) => l());
 }
-export const onSfxChange = (l: () => void) => (listeners.add(l), () => listeners.delete(l));
+export const onSfxChange = (l: () => void) => {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
+};
 
 export function play(kind: Sfx) {
   if (prefs.muted) return;

@@ -60,18 +60,42 @@ export function stream(path: string, body: unknown, onEvent: (e: GugEvent) => vo
   return () => ac.abort();
 }
 
-export interface Me {
-  user: { id: string; email: string; handle: string; name: string; isOwner: boolean; twoFactor: boolean; recoveryLeft: number; createdAt: string; prefs: any };
-  group: Group | null;
-  engines: { canHost: boolean; claudeCode: { ok: boolean; version: string }; claudeKeys: number };
+export interface State {
+  profile: { name: string; createdAt: string };
+  prefs: { engine: Engine; codePermission: "acceptEdits" | "plan"; localUrl: string; localModel: string; agents: Record<string, { engine?: Engine; autonomy?: string; enabled?: boolean }> };
+  engines: { claudeCode: { ok: boolean; version: string }; claudeKeys: number; local: boolean };
   vault: { name: string; preview: string }[];
+  dataDir: string;
+  previewKey: string;
+  address: string;
 }
 
-export interface Group {
+export type Engine = "auto" | "claude" | "code" | "local";
+export type Mode = "fast" | "deep" | "debate" | "build";
+
+export interface AgentInfo {
   id: string;
   name: string;
-  code?: string;
-  isHost: boolean;
-  members: { handle: string; isHost: boolean; isYou: boolean }[];
-  room: { handle: string; text: string; at: string }[];
+  role: string;
+  category: string;
+  engine: Engine;
+  autonomy: string;
+  enabled: boolean;
+  last: string | null;
+  messages: number;
+}
+
+export interface NowPlaying {
+  available: boolean;
+  active: boolean;
+  playing: boolean;
+  title: string;
+  artist: string;
+  album: string;
+  app: string;
+  position: number;
+  duration: number;
+  canSeek: boolean;
+  backend: string;
+  hint?: string;
 }

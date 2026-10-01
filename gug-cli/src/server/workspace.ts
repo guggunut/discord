@@ -15,10 +15,15 @@ export function workspaceRoot(): string {
   return dir;
 }
 
-export function projectDir(project: string): string {
+/** Folder of an existing project. The playground is (re)seeded on demand; others must be created first. */
+export function projectDir(project: string, opts: { create?: boolean } = {}): string {
   if (!NAME_RE.test(project)) throw new HttpError(400, "Bad project name.");
   const dir = path.join(workspaceRoot(), project);
-  mkdirSync(dir, { recursive: true });
+  if (project === "playground" && (!existsSync(dir) || readdirSync(dir).length === 0)) seedPlayground();
+  else if (!existsSync(dir)) {
+    if (!opts.create) throw new HttpError(404, `No project called ${project}.`);
+    mkdirSync(dir, { recursive: true });
+  }
   return dir;
 }
 
@@ -32,12 +37,9 @@ export function safeJoin(root: string, rel: string): string {
 }
 
 export function listProjects(): string[] {
+  projectDir("playground");
   const root = workspaceRoot();
   const names = readdirSync(root).filter((n) => NAME_RE.test(n) && statSync(path.join(root, n)).isDirectory());
-  if (!names.includes("playground")) {
-    seedPlayground();
-    names.unshift("playground");
-  }
   return names.sort((a, b) => (a === "playground" ? -1 : b === "playground" ? 1 : a.localeCompare(b)));
 }
 
@@ -87,7 +89,8 @@ Always include an index.html entry point. Keep everything self-contained (no bui
 After the files, add two or three sentences on what you built and how to use it.`;
 
 function seedPlayground(): void {
-  const dir = projectDir("playground");
+  const dir = path.join(workspaceRoot(), "playground");
+  mkdirSync(dir, { recursive: true });
   writeFile(dir, "index.html", `<!doctype html>
 <html lang="en">
 <head>

@@ -87,3 +87,17 @@ test("API is locked until unlocked with the access token", async () => {
   const esc = await fetch(`${base}/api/projects/playground/file?path=${encodeURIComponent("../../vault.key")}`, { headers: { cookie } });
   assert.equal(esc.status, 400);
 });
+
+test("previews need the preview key and are sandboxed", async () => {
+  // Seed the playground via the projects listing.
+  const ok = await fetch(`${base}/api/unlock`, { method: "POST", headers: H, body: JSON.stringify({ token: local.getAccessToken() }) });
+  const cookie = ok.headers.get("set-cookie")!.split(";")[0];
+  const pr = await fetch(`${base}/api/projects`, { headers: { cookie } });
+  assert.equal(pr.status, 200, await pr.text());
+  assert.equal((await fetch(`${base}/preview/${"0".repeat(32)}/playground/`)).status, 404);
+  const res = await fetch(`${base}/preview/${local.previewKey()}/playground/style.css`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-security-policy") ?? "", /sandbox allow-scripts/);
+  assert.equal((await fetch(`${base}/preview/${local.previewKey()}/playground/..%2f..%2fvault.key`)).status, 400);
+});
+

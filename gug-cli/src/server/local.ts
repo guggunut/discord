@@ -12,7 +12,7 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import type { NextFunction, Request, Response } from "express";
 import { config, paths } from "./config.js";
-import { open, randomToken, safeEqual, seal } from "./crypto.js";
+import { open, randomToken, safeEqual, seal, sha256 } from "./crypto.js";
 import type { Store } from "./store.js";
 
 export class HttpError extends Error {
@@ -44,6 +44,11 @@ export function getVaultKey(): Buffer {
 
 export function getAccessToken(): string {
   return readOrCreate(paths.token(), () => randomToken(24));
+}
+
+/** A separate key for sandboxed previews (they can't send cookies). Derived, so it changes with the access token. */
+export function previewKey(): string {
+  return sha256(`${getAccessToken()}:preview`).slice(0, 32);
 }
 
 export function rotateAccessToken(): string {

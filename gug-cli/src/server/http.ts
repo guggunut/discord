@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { AGENTS } from "./agents.js";
 import { claudeKeyCheck, cloneRepo, discordTest, githubRepos, githubUser } from "./apps.js";
 import { config } from "./config.js";
+import { safeEqual } from "./crypto.js";
 import type { Mode } from "./engines/claude.js";
 import { detectClaudeCode, runClaudeCode } from "./engines/claudeCode.js";
 import { isLoopbackUrl } from "./engines/local.js";
@@ -16,6 +17,7 @@ import {
   csrfGuard,
   hostGuard,
   isUnlocked,
+  previewKey,
   requireUnlocked,
   rotateAccessToken,
   unlock,
@@ -92,6 +94,7 @@ export function createApp(store: Store) {
       engines: { claudeCode: cc, claudeKeys: claudeKeys(store).length, local: !!store.data.prefs.localModel },
       vault: vaultList(store),
       dataDir: config.dataDir,
+      previewKey: previewKey(),
       address: `${config.host}:${config.port}`,
     });
   });
@@ -176,7 +179,7 @@ export function createApp(store: Store) {
   app.post("/api/projects", (req, res) => {
     const name = str(req.body?.name, 64).trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
     if (!name) throw new HttpError(400, "Give the project a name.");
-    projectDir(name);
+    projectDir(name, { create: true });
     res.json({ project: name });
   });
   app.post("/api/projects/:p/vibe", async (req, res) => {
@@ -195,10 +198,12 @@ export function createApp(store: Store) {
   });
 
   // Sandboxed preview: an opaque origin, so project code can't call the API or read cookies.
-  app.get(/^\/preview\/([a-z0-9][a-z0-9._-]{0,63})(?:\/(.*))?$/i, requireUnlocked, (req, res) => {
+  // Because it can't send cookies either, it's authorised by a preview key in the path.
+  app.get(/^\/preview\/([a-f0-9]{32})\/([a-z0-9][a-z0-9._-]{0,63})(?:\/(.*))?$/i, (req, res) => {
     const params = req.params as unknown as Record<string, string>;
-    const dir = projectDir(params[0]);
-    const full = safeJoin(dir, params[1] || "index.html");
+    if (!safeEqual(params[0], previewKey())) throw new HttpError(404, "Not found.");
+    const dir = projectDir(params[1]);
+    const full = safeJoin(dir, params[2] || "index.html");
     if (!existsSync(full)) throw new HttpError(404, "Not found.");
     res.set({ "content-security-policy": "sandbox allow-scripts allow-forms allow-modals; frame-ancestors 'self'", "x-frame-options": "SAMEORIGIN", "cache-control": "no-store" });
     res.sendFile(full);
