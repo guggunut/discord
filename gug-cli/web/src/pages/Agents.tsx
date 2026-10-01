@@ -195,7 +195,18 @@ export function Agents() {
             {tab === "chat" && (
               <div className="tx-rise" style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 18, flexGrow: 1 }}>
                 <div ref={feedRef} className="scroll" style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: 280, maxHeight: 520 }}>
-                  {!msgs.length && <div className="muted" style={{ fontSize: 14 }}>Say hi to {a.name}. Conversations are saved on this computer.</div>}
+                  {!msgs.length && (
+                    <div className="tx-rise" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div className="muted" style={{ fontSize: 14 }}>Say hi to {a.name}. Conversations are saved on this computer.</div>
+                      <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
+                        {(STARTERS[a.id] ?? []).map((q) => (
+                          <button key={q} type="button" className="chip" style={{ height: "auto", minHeight: 30, padding: "6px 12px", textAlign: "left", whiteSpace: "normal" }} onClick={() => setDraft(q)}>
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {msgs.map((m, i) =>
                     m.role === "user" ? (
                       <div key={i} className="bubble-me">
@@ -338,6 +349,21 @@ export function Agents() {
     </div>
   );
 }
+
+const STARTERS: Record<string, string[]> = {
+  atlas: ["What should I focus on today?", "Look at my money, posts and flows and tell me what needs attention", "Turn my goal for this month into a weekly plan"],
+  ledger: ["How is my money doing this month?", "Log a sale of £34.99 to my store", "What margin do I make on a £34.99 lamp that costs £11.40 + £8 ads?"],
+  quant: ["How has the S&P 500 done this month?", "Explain index funds vs single stocks", "Add NVDA to my watchlist"],
+  muse: ["Give me 5 logo ideas for my brand", "Write image prompts for a moody product shot", "Suggest a colour palette for my store"],
+  echo: ["Draft 3 TikTok posts for this week", "What's on my content calendar?", "Write a hook for a desk-setup reel"],
+  relay: ["Set up a weekly money check-in on Sundays", "What automations do I have?", "Automate a morning plan sent to Discord"],
+  scout: ["Find 3 trending products for a desk-setup store", "Compare Shopify and Etsy fees for me", "What's the price of BTC right now?"],
+  forge: ["Build a landing page for my store", "Add a dark/light toggle to my project", "Explain what my Roblox leaderstats script does"],
+  vox: ["Write a 30-second ad script for my lamp", "Give me 5 podcast episode ideas", "Make this sound more natural: “Buy our lamp today.”"],
+  tempo: ["Plan my day around school and revision", "How much have I focused this week?", "What's coming up on my calendar?"],
+  sage: ["Make me a revision plan for my exams", "Explain compound interest simply", "Quiz me on what I learned today"],
+  sentinel: ["Is my GUG-cli setup secure?", "Give me a 5-minute account security checklist", "How do I spot a phishing email?"],
+};
 
 interface Fact { id: string; text: string; at: string; by: string }
 

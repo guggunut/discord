@@ -40,4 +40,5 @@ test("stats count only posted posts and compare with the week before", () => {
   assert.equal(s.change.engagement, 100);
   assert.equal(s.rate, 3.8);
   assert.equal(s.byPlatform.find((p) => p.platform === "instagram")!.views, 3000);
+  assert.deepEqual(s.bestSlots[0], { slot: "Sat evening", avgViews: 3000, posts: 1 }, "3 Oct 2026 is a Saturday; posts default to 19:00");
 });

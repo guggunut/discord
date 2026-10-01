@@ -80,8 +80,22 @@ export function growthStats(g: Growth, from: string, to: string) {
     platform: p,
     views: g.posts.filter((x) => x.platform === p && x.status === "posted" && x.date >= from && x.date <= to).reduce((a, x) => a + (x.metrics?.views ?? 0), 0),
   }));
+  // When posts do best, across everything posted with numbers: weekday × part of day, by average views.
+  const part = (t: string) => {
+    const h = Number(t.slice(0, 2));
+    return h >= 6 && h < 12 ? "morning" : h >= 12 && h < 17 ? "afternoon" : h >= 17 && h < 22 ? "evening" : "late night";
+  };
+  const slots = new Map<string, { views: number; n: number }>();
+  for (const p of g.posts) {
+    if (p.status !== "posted" || !p.metrics?.views) continue;
+    const key = `${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(`${p.date}T12:00:00`).getDay()]} ${part(p.time)}`;
+    const cur = slots.get(key) ?? { views: 0, n: 0 };
+    slots.set(key, { views: cur.views + p.metrics.views, n: cur.n + 1 });
+  }
+  const bestSlots = [...slots].map(([slot, v]) => ({ slot, avgViews: Math.round(v.views / v.n), posts: v.n })).sort((a, b) => b.avgViews - a.avgViews).slice(0, 3);
   return {
     now,
+    bestSlots,
     change: { views: pct(now.views, before.views), engagement: pct(now.engagement, before.engagement), posts: pct(now.posts, before.posts) },
     rate: now.views ? Math.round((now.engagement / now.views) * 1000) / 10 : 0,
     byPlatform,
@@ -108,12 +122,13 @@ export async function* planWeek(store: Store, from: string, goal: string, platfo
   const g = store.data.growth;
   const days = Array.from({ length: 7 }, (_, i) => new Date(Date.parse(from) + i * 864e5).toISOString().slice(0, 10));
   const existing = g.posts.filter((p) => days.includes(p.date)).map((p) => `${p.date} ${p.platform}: ${p.title}`);
+  const best = growthStats(g, days[0], days[6]).bestSlots;
   const prompt = `Plan ${count} social posts for the week ${days[0]} to ${days[6]}.
 Brand / what I do: ${g.brand || "a small online brand (desk setups, digital products, a Roblox game)"}.
 Goal this week: ${goal || "grow reach and drive a few sales"}.
 Platforms to use: ${platforms.join(", ")}.
 Already planned (don't duplicate): ${existing.length ? existing.join("; ") : "nothing"}.
-Spread posts across the week at times when people are online (evenings work well).
+Spread posts across the week at times when people are online${best.length ? ` — my best slots so far by average views: ${best.map((b) => b.slot).join(", ")}` : " (evenings work well)"}.
 Reply with ONLY a JSON array, no prose. Each item: {"date":"YYYY-MM-DD","time":"HH:MM","platform":one of ${JSON.stringify(platforms)},"title":"short working title","caption":"ready-to-post caption with a hook first line and 3-5 hashtags"}`;
   let out = "";
   let failed = false;

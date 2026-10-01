@@ -13,6 +13,7 @@ interface Stats {
   change: { views: number | null; engagement: number | null; posts: number | null };
   rate: number;
   byPlatform: { platform: Platform; views: number }[];
+  bestSlots: { slot: string; avgViews: number; posts: number }[];
 }
 interface Data { brand: string; posts: Post[]; stats: Stats; discord: boolean }
 
@@ -242,6 +243,22 @@ export function Growth() {
             ))}
             <p className="muted" style={{ fontSize: 11, margin: "10px 0 0" }}>Log views and likes on posted items to fill this in.</p>
           </div>
+
+          {s.bestSlots.length > 0 && (
+            <div className="card rise d5" style={{ padding: 18 }}>
+              <h2 className="disp" style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 400 }}>When your posts do best</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
+                {s.bestSlots.map((b, i) => (
+                  <div key={b.slot} style={{ padding: "12px 14px", borderRadius: 14, background: i === 0 ? "linear-gradient(160deg, rgba(255,43,58,0.18), rgba(255,255,255,0.02))" : "rgba(255,255,255,0.03)", border: `1px solid ${i === 0 ? "rgba(255,43,58,0.45)" : "rgba(255,255,255,0.06)"}` }}>
+                    <div className="mono" style={{ fontSize: 10, color: i === 0 ? "#FF5A66" : "#71717A" }}>#{i + 1}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, marginTop: 4 }}>{b.slot}</div>
+                    <div className="muted" style={{ fontSize: 12 }}>{short(b.avgViews)} avg views · {b.posts} post{b.posts > 1 ? "s" : ""}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="muted" style={{ fontSize: 11, margin: "10px 0 0" }}>From every post you’ve logged. Echo uses this when it plans your week.</p>
+            </div>
+          )}
         </section>
 
         <section className="card hot rise d4" style={{ padding: 18, alignSelf: "start", display: "flex", flexDirection: "column", gap: 12 }}>
