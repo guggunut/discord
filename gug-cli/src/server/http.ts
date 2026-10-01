@@ -178,7 +178,7 @@ export function createApp(store: Store) {
 
   app.post("/api/roundtable", async (req, res) => {
     const ids = Array.isArray(req.body?.agents) ? req.body.agents.map((x: unknown) => str(x, 40)) : [];
-    await sse(res, (signal) => roundtable(claudeKeys(store), ids, str(req.body?.prompt, 8000), asMode(req.body?.mode), signal));
+    await sse(res, (signal) => roundtable(claudeKeys(store), ids, str(req.body?.prompt, 8000), asMode(req.body?.mode), signal, store));
   });
 
   // ---------- code ----------

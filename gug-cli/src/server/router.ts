@@ -78,7 +78,7 @@ export async function* chat(store: Store, input: ChatInput): AsyncGenerator<GugE
  * Agents talking to each other: each agent answers in turn and sees what the
  * others said. In debate mode a second pass critiques, then Atlas sums up.
  */
-export async function* roundtable(keys: string[], ids: string[], prompt: string, mode: Mode, signal?: AbortSignal): AsyncGenerator<GugEvent> {
+export async function* roundtable(keys: string[], ids: string[], prompt: string, mode: Mode, signal?: AbortSignal, store?: Store): AsyncGenerator<GugEvent> {
   const agents = ids.map(agentById).filter((a): a is AgentPreset => !!a).slice(0, 6);
   if (!agents.length) {
     yield { type: "error", message: "Pick at least one agent." };
@@ -88,7 +88,10 @@ export async function* roundtable(keys: string[], ids: string[], prompt: string,
   const turn = async function* (agent: AgentPreset, instruction: string): AsyncGenerator<GugEvent> {
     const context = transcript.length ? `\n\nWhat the other agents have said so far:\n${transcript.join("\n\n")}` : "";
     let said = "";
-    for await (const ev of runClaude({ keys, system: systemFor(agent), messages: [{ role: "user", content: `${instruction}${context}` }], mode: mode === "debate" ? "deep" : mode, agent: agent.id, signal, maxTokens: 4000 })) {
+    // In a group, agents may look things up (read-only) but never change your data.
+    const tools = store ? toolsFor(store, agent.id).filter((t) => !t.writes) : [];
+    const system = tools.length ? `${systemFor(agent)}\n\n${TOOL_SYSTEM} In this group discussion your tools are read-only.\nToday is ${new Date().toDateString()}.` : systemFor(agent);
+    for await (const ev of runClaude({ keys, system, messages: [{ role: "user", content: `${instruction}${context}` }], mode: mode === "debate" ? "deep" : mode, agent: agent.id, signal, maxTokens: 4000, tools })) {
       if (ev.type === "text") said += ev.text;
       yield ev;
     }

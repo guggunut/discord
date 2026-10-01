@@ -12,6 +12,7 @@ import { accessUrl, claudeKeys, vaultDelete, vaultSet } from "./server/local.js"
 import { Store } from "./server/store.js";
 import { paths } from "./server/config.js";
 import { dataCommand } from "./cliData.js";
+import { TOOL_SYSTEM, toolsFor } from "./server/tools.js";
 import { execFile, spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
@@ -82,7 +83,7 @@ async function print(events: AsyncGenerator<GugEvent>, labelAgents = false): Pro
       process.stderr.write(c(DIM, `[${ev.engine} · ${ev.model}]\n`));
     }
     if (ev.type === "text") process.stdout.write(ev.text);
-    if (ev.type === "tool") process.stderr.write(`\n${c(RED, "▸")} ${ev.name} ${c(DIM, ev.detail)}`);
+    if (ev.type === "tool") process.stderr.write(`\n${c(RED, "▸")} ${ev.name} ${c(DIM, ev.detail)}\n`);
     if (ev.type === "fallback") process.stderr.write(c(DIM, `\n[router] ${ev.from} → ${ev.to ?? "next"} ${ev.reason ? `(${ev.reason})` : ""}\n`));
     if (ev.type === "error") {
       failed = 1;
@@ -213,7 +214,10 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       if (!text) return console.error('Say something: gug chat "plan my week"'), 1;
       const agent = agentById(String(flags.agent ?? "atlas"));
       if (!agent) return console.error(`Unknown agent. Try: ${AGENTS.map((a) => a.id).join(", ")}`), 1;
-      return print(runClaude({ keys: envKeys(), system: systemFor(agent), messages: [{ role: "user", content: text }], mode: asMode(flags.mode, "deep"), agent: agent.id, signal: ac.signal }));
+      // Read-only here: the app may be running and owns writes to your data.
+      const tools = toolsFor(new Store(paths.db()), agent.id).filter((t) => !t.writes);
+      const system = tools.length ? `${systemFor(agent)}\n\n${TOOL_SYSTEM} In the terminal your tools are read-only.\nToday is ${new Date().toDateString()}.` : systemFor(agent);
+      return print(runClaude({ keys: envKeys(), system, messages: [{ role: "user", content: text }], mode: asMode(flags.mode, "deep"), agent: agent.id, signal: ac.signal, tools }));
     }
     case "code": {
       if (!text) return console.error('Describe the change: gug code "add tests for utils.ts"'), 1;
@@ -222,7 +226,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     case "roundtable": {
       if (!text) return console.error('Ask the team: gug roundtable "how do I launch my store?"'), 1;
       const ids = String(flags.agents ?? "atlas,ledger,echo").split(",").map((s) => s.trim());
-      return print(roundtable(envKeys(), ids, text, asMode(flags.mode, "debate"), ac.signal), true);
+      return print(roundtable(envKeys(), ids, text, asMode(flags.mode, "debate"), ac.signal, new Store(paths.db())), true);
     }
     case "agents": {
       console.log(BANNER);
