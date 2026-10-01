@@ -73,7 +73,9 @@ export function parseSymbol(input: string, kind?: AssetKind): Omit<WatchItem, "a
   if (kind === "crypto" || (!kind && CRYPTO[up])) {
     const id = CRYPTO[up] ?? raw.toLowerCase();
     if (!GECKO_RE.test(id)) throw new HttpError(400, "That doesn't look like a coin. Try BTC, ETH or a CoinGecko id.");
-    return { symbol: id, kind: "crypto", label: CRYPTO[up] ? up : raw.toLowerCase() };
+    // Known coins always show their ticker, whether you typed "btc" or "bitcoin".
+    const ticker = Object.keys(CRYPTO).find((k) => CRYPTO[k] === id);
+    return { symbol: id, kind: "crypto", label: ticker ?? id };
   }
   if (!STOCK_RE.test(up)) throw new HttpError(400, "That doesn't look like a ticker. Try AAPL, TSLA or VUSA.L.");
   return { symbol: up, kind: "stock", label: up };

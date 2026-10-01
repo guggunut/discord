@@ -10,6 +10,7 @@ import { roundtable } from "./server/router.js";
 import { accessUrl, claudeKeys, vaultDelete, vaultSet } from "./server/local.js";
 import { Store } from "./server/store.js";
 import { paths } from "./server/config.js";
+import { dataCommand } from "./cliData.js";
 import { execFile, spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
@@ -38,6 +39,15 @@ ${c(BOLD, "Usage")}
   gug roundtable [--agents atlas,ledger,echo] [--mode debate] "…"
                                                  Several agents answer and build on each other
   gug agents                                     List the agents
+
+${c(BOLD, "Your stuff")} ${c(DIM, "(works whether or not the app is open)")}
+  gug today                                      Today's briefing: inbox, posts, profit, movers
+  gug money [--range 7d|30d|90d|12m]             Revenue, profit and margin by stream
+  gug log sale|cost|refund <amount> --stream "Shop" [--note "…"] [--orders 2]
+  gug price AAPL [--span 1d|1w|1m|6m|1y]         A live price with range stats
+  gug watch | gug watch add BTC | gug watch rm BTC
+  gug flows | gug flows run "Morning plan"       List or run your automations
+  gug backup [--out file.json] [--chats]         Save a backup (never includes keys)
   gug doctor                                     Check your setup
 
 ${c(BOLD, "Modes")}  fast · deep · debate · build
@@ -57,7 +67,7 @@ function parse(argv: string[]) {
       else flags[k] = true;
     } else rest.push(a);
   }
-  return { flags, text: rest.join(" ").trim() };
+  return { flags, rest, text: rest.join(" ").trim() };
 }
 
 async function print(events: AsyncGenerator<GugEvent>, labelAgents = false): Promise<number> {
@@ -152,7 +162,7 @@ function asMode(m: unknown, d: Mode): Mode {
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   const [cmd, ...args] = argv;
-  const { flags, text } = parse(args);
+  const { flags, rest, text } = parse(args);
   const ac = new AbortController();
   process.once("SIGINT", () => ac.abort());
 
@@ -235,8 +245,11 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     case "-h":
       console.log(HELP);
       return 0;
-    default:
+    default: {
+      const handled = await dataCommand(cmd, rest, flags);
+      if (handled !== null) return handled;
       console.error(`Unknown command “${cmd}”.\n${HELP}`);
       return 1;
+    }
   }
 }

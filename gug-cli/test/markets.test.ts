@@ -93,3 +93,9 @@ test("alerts need sensible prices", () => {
   assert.deepEqual(setAlert(m, "AAPL", "stock", { above: 150, below: "" }).alert, { above: 150, below: undefined });
   assert.equal(setAlert(m, "AAPL", "stock", {}).alert, undefined);
 });
+
+test("known coins keep their ticker however they're typed", () => {
+  assert.equal(parseSymbol("bitcoin", "crypto").label, "BTC");
+  assert.equal(parseSymbol("eth").label, "ETH");
+  assert.equal(parseSymbol("pepe", "crypto").label, "pepe");
+});
