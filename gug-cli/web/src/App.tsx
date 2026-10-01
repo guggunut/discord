@@ -15,6 +15,7 @@ import { Academy } from "./pages/Academy";
 import { Ventures } from "./pages/Ventures";
 import { Palette } from "./Palette";
 import { Notifier } from "./Notifier";
+import { Shortcuts } from "./Shortcuts";
 import { Markets } from "./pages/Markets";
 import { Studio } from "./pages/Studio";
 import { Growth } from "./pages/Growth";
@@ -146,6 +147,7 @@ export function App() {
         </div>
       </MediaProvider>
       <Notifier toast={toast} go={ctx.go} />
+      <Shortcuts go={ctx.go} />
       {toastMsg && (
         <div style={{ position: "fixed", left: 0, right: 0, bottom: 28, display: "flex", justifyContent: "center", zIndex: 95, pointerEvents: "none" }}>
           <div className="card pop" role="status" style={{ padding: "12px 18px", display: "flex", gap: 10, alignItems: "center", borderColor: toastMsg.kind === "err" ? "rgba(255,43,58,0.6)" : "rgba(255,255,255,0.2)" }}>
