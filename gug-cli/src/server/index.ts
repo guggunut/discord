@@ -3,6 +3,7 @@ import { createApp } from "./http.js";
 import { accessUrl, getAccessToken, getVaultKey } from "./local.js";
 import { Store } from "./store.js";
 import { startScheduler } from "./flows.js";
+import { startAlertWatcher } from "./markets.js";
 
 export function startServer(opts: { port?: number; host?: string; quiet?: boolean } = {}) {
   const store = new Store(paths.db());
@@ -10,6 +11,7 @@ export function startServer(opts: { port?: number; host?: string; quiet?: boolea
   getAccessToken();
   const app = createApp(store);
   const stopScheduler = startScheduler(store);
+  const stopAlerts = startAlertWatcher(store);
   const port = opts.port ?? config.port;
   const host = opts.host ?? config.host;
   config.port = port;
@@ -22,6 +24,7 @@ export function startServer(opts: { port?: number; host?: string; quiet?: boolea
   });
   const shutdown = () => {
     stopScheduler();
+    stopAlerts();
     store.flush();
     server.close(() => process.exit(0));
   };

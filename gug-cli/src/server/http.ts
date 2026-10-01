@@ -29,6 +29,7 @@ import {
 import { control, nowPlaying, type MediaAction } from "./media.js";
 import { TEMPLATES, runFlow, validateFlow } from "./flows.js";
 import { reviewWithLedger, sampleData, summarise, validateEntry, validateStream, type Range } from "./ventures.js";
+import { paperTrade, parseSymbol, quantRead, quote, setAlert, stats, type AssetKind, type Span } from "./markets.js";
 import { chat, roundtable, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -354,6 +355,86 @@ export function createApp(store: Store) {
   });
   app.post("/api/ventures/review", async (req, res) => {
     await sse(res, (signal) => reviewWithLedger(store, v(), asRange(req.body?.range), str(req.body?.question, 1000), signal));
+  });
+
+  // ---------- markets ----------
+  const SPANS: Span[] = ["1d", "1w", "1m", "6m", "1y"];
+  const asSpan = (x: unknown): Span => (SPANS.includes(x as Span) ? (x as Span) : "1m");
+  const asKind = (k: unknown): AssetKind => (k === "crypto" ? "crypto" : "stock");
+  const mk = () => store.data.markets;
+  const failMsg = (e: unknown) => (e instanceof Error ? e.message : "Couldn't load a price.");
+  app.get("/api/markets", async (req, res) => {
+    const span = asSpan(req.query.span);
+    const watch = await Promise.all(
+      mk().watch.map(async (w) => {
+        try {
+          return { ...w, quote: await quote(w, span) };
+        } catch (e) {
+          return { ...w, error: failMsg(e) };
+        }
+      }),
+    );
+    const positions = await Promise.all(
+      Object.entries(mk().paper.positions).map(async ([key, p]) => {
+        const [, ...rest] = key.split(":");
+        const symbol = rest.join(":");
+        let price: number | null = null;
+        try {
+          price = (await quote({ symbol, kind: p.kind, label: p.label }, "1d")).price;
+        } catch {
+          /* show without a live price */
+        }
+        return { symbol, ...p, price, value: price === null ? null : p.qty * price };
+      }),
+    );
+    const { cash, start, trades } = mk().paper;
+    res.json({ span, watch, paper: { cash, start, positions, trades: trades.slice(0, 20) } });
+  });
+  app.get("/api/markets/quote", async (req, res) => {
+    const w = parseSymbol(str(req.query.symbol, 60), asKind(req.query.kind));
+    const q = await quote(w, asSpan(req.query.span));
+    res.json({ ...q, stats: stats(q.history) });
+  });
+  app.post("/api/markets/watch", async (req, res) => {
+    if (mk().watch.length >= 30) throw new HttpError(400, "Your watchlist is full (30). Remove one first.");
+    const w = parseSymbol(str(req.body?.symbol, 60), req.body?.kind === "crypto" || req.body?.kind === "stock" ? req.body.kind : undefined);
+    if (mk().watch.some((x) => x.symbol === w.symbol && x.kind === w.kind)) throw new HttpError(400, `${w.label} is already on your list.`);
+    const q = await quote(w, "1m"); // proves the ticker exists before saving it
+    const item = { ...w, addedAt: new Date().toISOString() };
+    mk().watch.push(item);
+    store.save();
+    res.json({ ...item, quote: q });
+  });
+  app.delete("/api/markets/watch/:kind/:symbol", (req, res) => {
+    mk().watch = mk().watch.filter((x) => !(x.kind === req.params.kind && x.symbol === req.params.symbol));
+    store.save();
+    res.json({ ok: true });
+  });
+  app.put("/api/markets/alert", (req, res) => {
+    const w = setAlert(mk(), str(req.body?.symbol, 60), asKind(req.body?.kind), { above: req.body?.above, below: req.body?.below });
+    store.save();
+    res.json(w);
+  });
+  app.post("/api/markets/paper", async (req, res) => {
+    const w = parseSymbol(str(req.body?.symbol, 60), asKind(req.body?.kind));
+    const known = mk().watch.find((x) => x.symbol === w.symbol && x.kind === w.kind);
+    const q = await quote(known ?? w, "1d");
+    if (q.stale) throw new HttpError(503, "Prices are stale right now — try again in a minute.");
+    const t = paperTrade(mk(), q, req.body?.side === "sell" ? "sell" : "buy", req.body?.qty);
+    store.save();
+    res.json(t);
+  });
+  app.post("/api/markets/paper/reset", (_req, res) => {
+    mk().paper = { cash: 10_000, start: 10_000, positions: {}, trades: [] };
+    store.save();
+    res.json({ ok: true });
+  });
+  app.post("/api/markets/read", async (req, res) => {
+    const w = parseSymbol(str(req.body?.symbol, 60), asKind(req.body?.kind));
+    const known = mk().watch.find((x) => x.symbol === w.symbol && x.kind === w.kind);
+    const span = asSpan(req.body?.span);
+    const q = await quote(known ?? w, span);
+    await sse(res, (signal) => quantRead(store, q, span, str(req.body?.question, 1000), signal));
   });
 
   // ---------- media ----------
