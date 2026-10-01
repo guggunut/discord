@@ -32,6 +32,7 @@ import { reviewWithLedger, sampleData, summarise, validateEntry, validateStream,
 import { paperTrade, parseSymbol, quantRead, quote, setAlert, stats, type AssetKind, type Span } from "./markets.js";
 import { STYLES, deleteArt, drawWithMuse, readArt, scriptWithVox } from "./studio.js";
 import { PLATFORMS, draftCaption, growthStats, planWeek, publishToDiscord, validatePost, type Platform } from "./growth.js";
+import { makeBackup, restoreBackup } from "./backup.js";
 import { chat, roundtable, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -65,7 +66,9 @@ export function createApp(store: Store) {
   const app = express();
   app.disable("x-powered-by");
   app.use(hostGuard);
-  app.use(express.json({ limit: "1mb" }));
+  const smallJson = express.json({ limit: "1mb" });
+  // Restoring a backup is the one request allowed to be large; it gets its own parser below.
+  app.use((req, res, next) => (req.path === "/api/restore" ? next() : smallJson(req, res, next)));
   app.use((_req, res, next) => {
     res.set({ "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "permissions-policy": "camera=(), geolocation=(), microphone=()" });
     next();
@@ -283,6 +286,7 @@ export function createApp(store: Store) {
     const f = flowById(String(req.params.id));
     await sse(res, (signal) => runFlow(store, f, "manual", signal));
   });
+  app.get("/api/inbox/latest", (_req, res) => res.json(store.data.inbox.slice(0, 5).map(({ id, title, body, at, read }) => ({ id, title, body: body.slice(0, 160), at, read }))));
   app.post("/api/inbox/read", (_req, res) => {
     store.data.inbox.forEach((i) => (i.read = true));
     store.save();
@@ -567,6 +571,18 @@ export function createApp(store: Store) {
       movers,
       nextFlow: nextFlow ?? null,
     });
+  });
+
+  // ---------- backup ----------
+  app.get("/api/backup", (req, res) => {
+    const day = new Date().toISOString().slice(0, 10);
+    res.set("content-disposition", `attachment; filename="gug-cli-backup-${day}.json"`);
+    res.json(makeBackup(store, { chats: req.query.chats === "1" }));
+  });
+  app.post("/api/restore", express.json({ limit: "40mb" }), (req, res) => res.json(restoreBackup(store, req.body)));
+  app.get("/api/storage", (_req, res) => {
+    const d = store.data;
+    res.json({ dataDir: config.dataDir, counts: { flows: d.flows.length, inbox: d.inbox.length, streams: d.ventures.streams.length, entries: d.ventures.entries.length, watch: d.markets.watch.length, posts: d.growth.posts.length, art: d.studio.art.length, chats: Object.values(d.chats).reduce((a, m) => a + m.length, 0) } });
   });
 
   // ---------- media ----------

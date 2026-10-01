@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type Engine } from "../api";
 import { useApp } from "../App";
 import { play, setSfx, type Sfx } from "../sfx";
 import { Brand, Icon, P, Seg, Switch, useSfxPrefs } from "../ui";
 
-type Section = "keys" | "engines" | "sound";
-const SECTIONS: [Section, string][] = [["keys", "API keys"], ["engines", "Engines"], ["sound", "Sound & motion"]];
+type Section = "keys" | "engines" | "sound" | "data";
+const SECTIONS: [Section, string][] = [["keys", "API keys"], ["engines", "Engines"], ["sound", "Sound & motion"], ["data", "Data & alerts"]];
 
 export function Settings() {
   const [sec, setSec] = useState<Section>(() => (localStorage.getItem("gug-settings") as Section) ?? "keys");
@@ -32,6 +32,7 @@ export function Settings() {
         {sec === "keys" && <div className="tx-wipe"><Keys /></div>}
         {sec === "engines" && <div className="tx-iris"><Engines /></div>}
         {sec === "sound" && <div className="tx-glitch"><Sound /></div>}
+        {sec === "data" && <div className="tx-drop"><Data /></div>}
       </div>
     </div>
   );
@@ -233,6 +234,85 @@ function Sound() {
           </span>
           <Switch on={reduce} label="Reduce motion" onChange={toggleReduce} />
         </div>
+      </div>
+    </>
+  );
+}
+
+function Data() {
+  const { toast } = useApp();
+  const [info, setInfo] = useState<{ dataDir: string; counts: Record<string, number> } | null>(null);
+  const [chats, setChats] = useState(false);
+  const [notify, setNotify] = useState(() => localStorage.getItem("gug-notify") === "1" && typeof Notification !== "undefined" && Notification.permission === "granted");
+  const file = useRef<HTMLInputElement>(null);
+  const load = () => api<{ dataDir: string; counts: Record<string, number> }>("/api/storage").then(setInfo).catch(() => {});
+  useEffect(() => void load(), []);
+
+  const toggleNotify = async (v: boolean) => {
+    if (v && typeof Notification !== "undefined" && Notification.permission !== "granted") {
+      const p = await Notification.requestPermission();
+      if (p !== "granted") return toast("Your browser blocked notifications — allow them in the site settings.", "err");
+    }
+    setNotify(v);
+    localStorage.setItem("gug-notify", v ? "1" : "0");
+    if (v) new Notification("GUG-cli", { body: "Notifications are on. Flow results and price alerts will show up here.", icon: "/icon-192.png" });
+  };
+
+  const restore = async (f: File) => {
+    try {
+      const body = JSON.parse(await f.text());
+      if (!confirm("Replace your flows, inbox, ventures, markets, posts and artwork with this backup? Your API keys stay as they are.")) return;
+      const r = await api<Record<string, number>>("/api/restore", { body });
+      play("success");
+      toast(`Restored ${r.flows} flows, ${r.entries} money entries, ${r.posts} posts and ${r.art} artworks${r.skipped ? ` (${r.skipped} invalid items skipped)` : ""}.`);
+      void load();
+    } catch (e) {
+      toast(e instanceof SyntaxError ? "That file isn’t valid JSON." : (e as Error).message, "err");
+    } finally {
+      if (file.current) file.current.value = "";
+    }
+  };
+
+  const c = info?.counts ?? {};
+  const LABELS: [string, string][] = [["flows", "Flows"], ["inbox", "Inbox items"], ["streams", "Income streams"], ["entries", "Money entries"], ["watch", "Watchlist"], ["posts", "Posts"], ["art", "Artworks"], ["chats", "Chat messages"]];
+  return (
+    <>
+      <Head n="04 — Data & alerts" title="Your stuff, your computer" sub="Everything lives in one folder on this machine. Back it up, move it to a new computer, or switch on desktop alerts." />
+      <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="row" style={{ gap: 12 }}>
+          <span style={{ flexGrow: 1 }}>
+            <span style={{ display: "block", fontSize: 14, fontWeight: 600 }}>Desktop notifications</span>
+            <span className="muted" style={{ display: "block", fontSize: 12 }}>Pop up when a flow finishes or a price alert fires, while GUG-cli is open.</span>
+          </span>
+          <Switch on={notify} label="Desktop notifications" onChange={(v) => void toggleNotify(v)} />
+        </div>
+      </div>
+      <div className="card" style={{ padding: "18px 20px", marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>Backup</div>
+          <div className="muted" style={{ fontSize: 12 }}>One JSON file with your flows, money, markets, posts and artwork. API keys are never included.</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
+          {LABELS.map(([k, l]) => (
+            <div key={k} style={{ padding: "10px 12px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="disp" style={{ fontSize: 20, fontWeight: 300 }}>{(c[k] ?? 0).toLocaleString()}</div>
+              <div className="mono muted" style={{ fontSize: 9, letterSpacing: ".08em" }}>{l.toUpperCase()}</div>
+            </div>
+          ))}
+        </div>
+        <label className="row" style={{ gap: 10, fontSize: 13 }}>
+          <Switch on={chats} label="Include chat history" onChange={setChats} /> Include chat history
+        </label>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <a className="btn btn-white" href={`/api/backup${chats ? "?chats=1" : ""}`} download style={{ textDecoration: "none" }}>
+            <Icon d={P.down} size={14} /> Download backup
+          </a>
+          <button type="button" className="btn" onClick={() => file.current?.click()}>
+            <Icon d={P.refresh} size={14} /> Restore from file…
+          </button>
+          <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => e.target.files?.[0] && void restore(e.target.files[0])} />
+        </div>
+        {info && <div className="mono muted" style={{ fontSize: 11 }}>Data folder: {info.dataDir}</div>}
       </div>
     </>
   );
