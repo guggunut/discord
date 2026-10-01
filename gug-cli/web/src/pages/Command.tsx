@@ -38,6 +38,35 @@ export function Command() {
   const [lines, setLines] = useState<Line[]>([]);
   const [busy, setBusy] = useState(false);
   const [voice, setVoice] = useState(false);
+  const recRef = useRef<{ stop: () => void } | null>(null);
+  type Rec = { lang: string; interimResults: boolean; continuous: boolean; onresult: (e: { resultIndex: number; results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }> }) => void; onend: () => void; onerror: (e: { error: string }) => void; start: () => void; stop: () => void };
+  const SpeechRec = (window as unknown as { SpeechRecognition?: new () => Rec; webkitSpeechRecognition?: new () => Rec }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: new () => Rec }).webkitSpeechRecognition;
+  const hasSpeech = !!SpeechRec;
+  // Speech to text into the composer; the core shows the listening state while it runs.
+  const toggleVoice = () => {
+    if (voice) return recRef.current?.stop();
+    if (!SpeechRec) return;
+    const rec = new SpeechRec();
+    rec.lang = navigator.language || "en-GB";
+    rec.interimResults = true;
+    rec.continuous = false;
+    const before = draft ? `${draft.trim()} ` : "";
+    rec.onresult = (e) => {
+      let text = "";
+      for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+      setDraft(before + text);
+    };
+    rec.onerror = (e) => e.error !== "aborted" && e.error !== "no-speech" && play("error");
+    rec.onend = () => {
+      setVoice(false);
+      recRef.current = null;
+    };
+    recRef.current = rec;
+    setVoice(true);
+    play("tab");
+    rec.start();
+  };
+  useEffect(() => () => recRef.current?.stop(), []);
   const abortRef = useRef<() => void>(() => {});
   const feedRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(1);
@@ -162,7 +191,7 @@ export function Command() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <Seg label="Mode" value={mode} onChange={setMode} width={290} options={[["fast", "Fast"], ["deep", "Deep"], ["debate", "Debate"], ["build", "Build"]]} />
             <div style={{ flexGrow: 1 }} />
-            <button type="button" aria-pressed={voice} aria-label="Voice mode (visual preview)" title="Voice input is coming — this shows the listening state" className="btn" style={{ width: 44, padding: 0, background: voice ? "#FF2B3A" : undefined, borderColor: voice ? "#FF2B3A" : undefined }} onClick={() => setVoice((v) => !v)}>
+            <button type="button" aria-pressed={voice} aria-label={voice ? "Stop listening" : "Speak your message"} title={hasSpeech ? "Speak instead of typing (uses your browser’s speech service)" : "Your browser doesn’t support speech input — try Chrome or Edge"} className="btn" style={{ width: 44, padding: 0, background: voice ? "#FF2B3A" : undefined, borderColor: voice ? "#FF2B3A" : undefined, opacity: hasSpeech ? 1 : 0.5 }} onClick={toggleVoice}>
               <Icon d={P.mic} size={17} />
             </button>
             {busy ? (

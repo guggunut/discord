@@ -75,7 +75,7 @@ export function createApp(store: Store) {
   // Restoring a backup is the one request allowed to be large; it gets its own parser below.
   app.use((req, res, next) => (req.path === "/api/restore" ? next() : smallJson(req, res, next)));
   app.use((_req, res, next) => {
-    res.set({ "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "permissions-policy": "camera=(), geolocation=(), microphone=()" });
+    res.set({ "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "permissions-policy": "camera=(), geolocation=(), microphone=(self)" });
     next();
   });
   app.use("/api", csrfGuard);
