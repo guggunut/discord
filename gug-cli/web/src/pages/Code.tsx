@@ -3,6 +3,7 @@ import { api, stream, type GugEvent } from "../api";
 import { useApp } from "../App";
 import { Md } from "../Md";
 import { play } from "../sfx";
+import { Changes, type ChangeSet } from "../Changes";
 import { LiveView, type Activity } from "../LiveView";
 import { McpPanel, type McpServer } from "../McpPanel";
 import { Brand, Icon, P, Seg, Sigil } from "../ui";
@@ -59,7 +60,9 @@ export function Code() {
   const [prompt, setPrompt] = useState("");
   const [steps, setSteps] = useState<Step[]>([]);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"preview" | "code" | "live" | "log">(() => (localStorage.getItem("gug-code-tab") as "code") || "preview");
+  const [tab, setTab] = useState<"preview" | "code" | "live" | "changes" | "log">(() => (localStorage.getItem("gug-code-tab") as "code") || "preview");
+  const [chg, setChg] = useState<ChangeSet | null>(null);
+  const loadChanges = useCallback(() => api<ChangeSet>(`/api/projects/${project}/changes`).then(setChg).catch(() => setChg(null)), [project]);
   const [device, setDevice] = useState<"desktop" | "tablet" | "phone">("desktop");
   const [mcpOpen, setMcpOpen] = useState(false);
   const [mcp, setMcp] = useState<McpServer[]>([]);
@@ -101,6 +104,7 @@ export function Code() {
       if (first) void open(first.path);
     });
     setPreviewKey((k) => k + 1);
+    void loadChanges();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
 
@@ -192,6 +196,7 @@ export function Code() {
       if (file && f.some((x) => x.path === file)) void open(file);
       else if (f[0]) void open((f.find((x) => x.path === "index.html") ?? f[0]).path);
       play("success");
+      void loadChanges();
       setTab((t) => (t === "log" ? "preview" : t));
     });
   };
@@ -286,11 +291,12 @@ export function Code() {
         {/* workspace */}
         <section className="card rise d3" style={{ padding: 0, overflow: "hidden", minWidth: 0, background: "#070708" }}>
           <div className="ws-tabs">
-            {([["preview", "Preview", P.play], ["code", file ?? "Code", P.Code], ["live", "Live view", "M3 5h18v12H3zM8 21h8M12 17v4"], ["log", "Build log", P.terminal]] as const).map(([k, label, ic]) => (
+            {([["preview", "Preview", P.play], ["code", file ?? "Code", P.Code], ["live", "Live view", "M3 5h18v12H3zM8 21h8M12 17v4"], ["changes", "Changes", "M6 3v12M18 9v12M6 15a3 3 0 100 6 3 3 0 000-6zM18 3a3 3 0 100 6 3 3 0 000-6zM6 15c0-4 12-2 12-6"], ["log", "Build log", P.terminal]] as const).map(([k, label, ic]) => (
               <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>
                 <Icon d={ic} size={13} /> <span className={k === "code" ? "mono" : ""}>{label}</span>
                 {k === "code" && dirty && <span style={{ color: "#FF2B3A" }}>●</span>}
                 {k === "live" && busy && on.length > 0 && <span className="blink" style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF2B3A" }} />}
+                {k === "changes" && !!chg?.files.length && <span className="ws-count">{chg.files.length}</span>}
                 {k === "log" && busy && <span className="dots3" style={{ transform: "scale(.7)" }}><span /><span /><span /></span>}
               </button>
             ))}
@@ -345,6 +351,28 @@ export function Code() {
               ))}
             {tab === "live" && (
               <LiveView activity={activity} busy={busy} hasBlender={on.some((m) => m.app === "blender")} />
+            )}
+            {tab === "changes" && (
+              <Changes
+                data={chg}
+                busy={busy}
+                onOpen={(p) => (void open(p), setTab("code"))}
+                onUndo={async () => {
+                  if (!confirm("Undo the last build? Every file goes back to how it was before it.")) return;
+                  try {
+                    const r = await api<{ restored: number }>(`/api/projects/${project}/undo`, { body: {} });
+                    play("success");
+                    toast(`Build undone — ${r.restored} file${r.restored === 1 ? "" : "s"} restored.`);
+                    const f = await loadFiles();
+                    setPreviewKey((k) => k + 1);
+                    if (file && f.some((x) => x.path === file)) void open(file);
+                    else if (f[0]) void open(f[0].path);
+                    void loadChanges();
+                  } catch (e) {
+                    toast((e as Error).message, "err");
+                  }
+                }}
+              />
             )}
             {tab === "log" && (
               <div className="tx-rise mono" style={{ fontSize: 12, lineHeight: 1.8, padding: "14px 18px", color: "#A1A1AA" }}>

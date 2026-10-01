@@ -47,6 +47,7 @@ import { avatarVersions, readAvatar, removeAvatar, saveAvatar } from "./avatars.
 import { MCP_PRESETS, blenderSnapshot, removeServer, testServer, validateServer, writeClaudeConfig } from "./mcp.js";
 import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
+import { changes, takeSnapshot, undo } from "./history.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, withStorageShim, writeFile } from "./workspace.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -241,6 +242,7 @@ export function createApp(store: Store) {
     const dir = projectDir(project);
     const prompt = str(req.body?.prompt, 8000);
     const engine = req.body?.engine === "code" ? "code" : "claude";
+    takeSnapshot(project, dir, prompt);
     await sse(res, (signal) => {
       if (engine === "code") {
         const mcp = store.data.mcp.some((m) => m.enabled) ? writeClaudeConfig(store) : undefined;
@@ -253,6 +255,15 @@ export function createApp(store: Store) {
         .map((f) => ({ path: f.path, content: readFile(dir, f.path) }));
       return vibeWithClaude(claudeKeys(store), project, prompt, files, signal);
     });
+  });
+
+  app.get("/api/projects/:p/changes", (req, res) => {
+    const project = String(req.params.p);
+    res.json(changes(project, projectDir(project)));
+  });
+  app.post("/api/projects/:p/undo", (req, res) => {
+    const project = String(req.params.p);
+    res.json({ restored: undo(project, projectDir(project)) });
   });
 
   // Sandboxed preview: an opaque origin, so project code can't call the API or read cookies.
