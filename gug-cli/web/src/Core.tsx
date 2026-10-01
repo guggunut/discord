@@ -87,6 +87,7 @@ export function Core({ mode, busy, voice, label, height = 380, crew = [], active
           <span className="burst r" />
         </span>
       )}
+      <div style={{ transform: `scale(${Math.min(1, (height - 40) / 340)})`, transformStyle: "preserve-3d", transition: "transform .6s cubic-bezier(.7,0,.2,1)" }}>
       <div className={`gwrap ${dragging ? "" : "spring"}`} style={{ transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) scale(${boost ? 1.12 : 1})` }}>
         <div className="octa-glow" />
         <div className="octa" style={{ animationDuration: boost ? "2.4s" : mode === "fast" ? "6s" : "14s", opacity: build ? 0 : 1, transition: "opacity .5s" }}>
@@ -120,13 +121,14 @@ export function Core({ mode, busy, voice, label, height = 380, crew = [], active
           </div>
         </div>
       </div>
+      </div>
       {crew.length > 1 && (
         // The selected agents orbit the core; whoever is talking lights up.
         <div className={`crew ${busy ? "busy" : ""}`} aria-hidden="true">
           {crew.map((id, i) => {
             const a = (i / crew.length) * 360;
             return (
-              <span key={id} className={`crew-m ${active === id ? "on" : ""}`} style={{ transform: `rotate(${a}deg) translate(min(150px, 30vw)) rotate(${-a}deg)` }}>
+              <span key={id} className={`crew-m ${active === id ? "on" : ""}`} style={{ transform: `rotate(${a}deg) translate(min(${Math.round(height * 0.38)}px, 30vw)) rotate(${-a}deg)` }}>
                 <span className="crew-in">
                   <Sigil id={id} size={30} glow={active === id} />
                 </span>

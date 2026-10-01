@@ -178,10 +178,72 @@ export function Command() {
       </section>
 
       <section style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-        <div className="rise d3">
-          <Core crew={sel} active={busy ? lines.at(-1)?.agent : undefined} mode={mode} busy={busy} voice={voice} label={busy ? "Thinking" : voice ? "Listening" : noKey ? "Add a Claude key to wake me" : "Core online"} />
+        <div className="rise d3 core-wrap">
+          <Core height={lines.length ? 250 : 380} crew={sel} active={busy ? lines.at(-1)?.agent : undefined} mode={mode} busy={busy} voice={voice} label={busy ? "Thinking" : voice ? "Listening" : noKey ? "Add a Claude key to wake me" : "Core online"} />
         </div>
-        <div className="card rise d4" style={{ padding: "14px 14px 12px", borderRadius: 22 }}>
+        {lines.length > 0 && (
+        <div className="card rise d5" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h2 className="disp" style={{ margin: 0, fontSize: 14, fontWeight: 400 }}>
+                Agent channel
+              </h2>
+              {busy ? (
+                <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 10, letterSpacing: ".14em", color: "#FF2B3A" }}>
+                  <span className="blink" style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF2B3A" }} />
+                  LIVE
+                </span>
+              ) : (
+                lines.length > 0 && (
+                  <button type="button" className="chip" onClick={() => setLines([])}>
+                    Clear
+                  </button>
+                )
+              )}
+            </div>
+            <div ref={feedRef} className="scroll" style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: "min(640px, 62vh)", minHeight: 120 }}>
+              {!lines.length && (
+                <div className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
+                  Ask something below. Pick one agent for a direct chat, or several to have them work it out together.
+                  {noKey && (
+                    <button type="button" className="btn btn-red" style={{ marginTop: 12, width: "100%" }} onClick={() => go("guide")}>
+                      Set up your first AI <Icon d={P.arrow} size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
+              {lines.map((l) =>
+                l.agent === "you" ? (
+                  <div key={l.id} className="bubble-me pop">
+                    {l.text}
+                  </div>
+                ) : l.agent === "router" ? (
+                  <div key={l.id} className="mono fade" style={{ fontSize: 11, color: "#A1A1AA" }}>
+                    ↻ {l.text}
+                  </div>
+                ) : (
+                  <div key={l.id} className="pop" style={{ display: "flex", gap: 10 }}>
+                    <Sigil id={l.agent} size={30} glow={false} />
+                    <div style={{ minWidth: 0, flexGrow: 1 }}>
+                      <div style={{ display: "flex", gap: 6, fontSize: 12, alignItems: "center" }}>
+                        <b>{agents.find((a) => a.id === l.agent)?.name ?? l.agent}</b>
+                        {l.model && <span className="mono muted" style={{ fontSize: 10 }}>{l.model}</span>}
+                      </div>
+                      {l.tools?.map((t, i) => (
+                        <div key={i} className="mono" style={{ fontSize: 11, color: "#FF5A66", marginTop: 4 }}>
+                          ▸ {t}
+                        </div>
+                      ))}
+                      <div className="bubble-ai" style={{ marginTop: 4, borderColor: l.error ? "rgba(255,43,58,0.5)" : undefined, color: l.error ? "#FF8A93" : undefined }}>
+                        {l.text ? <Md text={l.text} /> : <span className="dots3"><span /><span /><span /></span>}
+                      </div>
+                    </div>
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+          )}
+        <div className={`card rise d4 ${lines.length ? "composer-dock" : ""}`} style={{ padding: "14px 14px 12px", borderRadius: 22 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minHeight: 30, marginBottom: 4 }}>
             <span className="eyebrow" style={{ fontSize: 10, marginRight: 4 }}>
               To
@@ -204,7 +266,20 @@ export function Command() {
           </label>
           <input id="composer" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), send())} placeholder={noKey ? "First add a Claude API key in Settings → API keys" : sel.length ? `Message ${names.join(" + ")}…` : "Select agents on the left"} style={{ width: "100%", height: 46, border: 0, outline: 0, background: "transparent", fontSize: 16, color: "#F4F4F5" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <Seg label="Mode" value={mode} onChange={setMode} width={290} options={[["fast", "Fast"], ["deep", "Deep"], ["debate", "Debate"], ["build", "Build"]]} />
+            <Seg label="Mode" value={mode} onChange={setMode} width={270} options={[["fast", "Fast"], ["deep", "Deep"], ["debate", "Debate"], ["build", "Build"]]} />
+            {sel.length > 1 ? (
+              <span className="mono muted hide-sm" style={{ fontSize: 10, letterSpacing: ".08em" }} title="Group chats run on Claude so every agent can see the others’ answers.">ENGINE · CLAUDE</span>
+            ) : (
+              <label className="row mono hide-sm" style={{ gap: 6, fontSize: 10, letterSpacing: ".08em", color: "#A1A1AA" }} title={ENGINE_HINT[engine]}>
+                ENGINE
+                <select aria-label="Engine" className="field" value={engine} onChange={(e) => setEngine(e.target.value as Engine)} style={{ height: 36, width: 132, fontSize: 12, padding: "0 10px" }}>
+                  <option value="auto">Auto</option>
+                  <option value="claude">Claude</option>
+                  <option value="code">Claude Code</option>
+                  <option value="local">Local</option>
+                </select>
+              </label>
+            )}
             <div style={{ flexGrow: 1 }} />
             <button type="button" aria-pressed={voice} aria-label={voice ? "Stop listening" : "Speak your message"} title={hasSpeech ? "Speak instead of typing (uses your browser’s speech service)" : "Your browser doesn’t support speech input — try Chrome or Edge"} className="btn" style={{ width: 44, padding: 0, background: voice ? "#FF2B3A" : undefined, borderColor: voice ? "#FF2B3A" : undefined, opacity: hasSpeech ? 1 : 0.5 }} onClick={toggleVoice}>
               <Icon d={P.mic} size={17} />
@@ -219,80 +294,12 @@ export function Command() {
               </button>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-            <span className="eyebrow" style={{ fontSize: 10 }}>
-              Engine
-            </span>
-            <Seg label="Engine" value={engine} onChange={setEngine} width={440} options={[["auto", "Auto"], ["claude", "Claude"], ["code", "Claude Code"], ["local", "Local"]]} />
-            <span style={{ flexBasis: "100%", fontSize: 12, color: "#A1A1AA", lineHeight: 1.5 }}>
-              {sel.length > 1 ? "Group chats run on Claude so every agent can see the others’ answers." : ENGINE_HINT[engine]}
-            </span>
-          </div>
         </div>
       </section>
 
       <section className="rise d4" style={{ display: "flex", flexDirection: "column", gap: 22, minWidth: 0 }}>
         <MediaCard />
-        <div className="card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <h2 className="disp" style={{ margin: 0, fontSize: 14, fontWeight: 400 }}>
-              Agent channel
-            </h2>
-            {busy ? (
-              <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 10, letterSpacing: ".14em", color: "#FF2B3A" }}>
-                <span className="blink" style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF2B3A" }} />
-                LIVE
-              </span>
-            ) : (
-              lines.length > 0 && (
-                <button type="button" className="chip" onClick={() => setLines([])}>
-                  Clear
-                </button>
-              )
-            )}
-          </div>
-          <div ref={feedRef} className="scroll" style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 520, minHeight: 120 }}>
-            {!lines.length && (
-              <div className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
-                Ask something below. Pick one agent for a direct chat, or several to have them work it out together.
-                {noKey && (
-                  <button type="button" className="btn btn-red" style={{ marginTop: 12, width: "100%" }} onClick={() => go("guide")}>
-                    Set up your first AI <Icon d={P.arrow} size={14} />
-                  </button>
-                )}
-              </div>
-            )}
-            {lines.map((l) =>
-              l.agent === "you" ? (
-                <div key={l.id} className="bubble-me pop">
-                  {l.text}
-                </div>
-              ) : l.agent === "router" ? (
-                <div key={l.id} className="mono fade" style={{ fontSize: 11, color: "#A1A1AA" }}>
-                  ↻ {l.text}
-                </div>
-              ) : (
-                <div key={l.id} className="pop" style={{ display: "flex", gap: 10 }}>
-                  <Sigil id={l.agent} size={30} glow={false} />
-                  <div style={{ minWidth: 0, flexGrow: 1 }}>
-                    <div style={{ display: "flex", gap: 6, fontSize: 12, alignItems: "center" }}>
-                      <b>{agents.find((a) => a.id === l.agent)?.name ?? l.agent}</b>
-                      {l.model && <span className="mono muted" style={{ fontSize: 10 }}>{l.model}</span>}
-                    </div>
-                    {l.tools?.map((t, i) => (
-                      <div key={i} className="mono" style={{ fontSize: 11, color: "#FF5A66", marginTop: 4 }}>
-                        ▸ {t}
-                      </div>
-                    ))}
-                    <div className="bubble-ai" style={{ marginTop: 4, borderColor: l.error ? "rgba(255,43,58,0.5)" : undefined, color: l.error ? "#FF8A93" : undefined }}>
-                      {l.text ? <Md text={l.text} /> : <span className="dots3"><span /><span /><span /></span>}
-                    </div>
-                  </div>
-                </div>
-              ),
-            )}
-          </div>
-        </div>
+        <CrewCard sel={sel} agents={agents} lines={lines} busy={busy} how={sel.length > 1 ? how : "solo"} />
       </section>
     </div>
   );
@@ -421,6 +428,53 @@ function Briefing() {
         row("#/command", <Icon d={P.check} size={15} color="#FF2B3A" />, <>Focused <b>{t.focus.today} min</b> today <span className="muted">· {t.focus.week} this week</span></>, t.focus.streak > 1 ? <span className="mono" style={{ fontSize: 10, color: "#FF5A66" }}>{t.focus.streak}-DAY STREAK</span> : undefined, "focus")}
       {t.nextFlow &&
         row("#/flows", <Icon d={P.refresh} size={15} />, <>Next: <b>{t.nextFlow.name}</b></>, <span className="mono muted" style={{ fontSize: 10 }}>{new Date(t.nextFlow.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>, "flow")}
+    </div>
+  );
+}
+
+/** Who's in this conversation and what each of them is doing right now. */
+function CrewCard({ sel, agents, lines, busy, how }: { sel: string[]; agents: AgentInfo[]; lines: Line[]; busy: boolean; how: "turns" | "team" | "solo" }) {
+  const { state, go } = useApp();
+  const lastYou = lines.map((l) => l.agent).lastIndexOf("you");
+  const since = lastYou >= 0 ? lines.slice(lastYou + 1) : [];
+  const active = busy ? since.at(-1)?.agent : undefined;
+  const status = (id: string) => (active === id ? "working" : since.some((l) => l.agent === id && l.text && !l.error) ? "done" : since.some((l) => l.agent === id && l.error) ? "error" : busy ? "waiting" : lastYou >= 0 ? "idle" : "ready");
+  const LABEL: Record<string, string> = { working: "WORKING", done: "DONE", error: "HIT A PROBLEM", waiting: "UP NEXT", idle: "—", ready: "READY" };
+  return (
+    <div className="card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="row">
+        <h2 className="disp" style={{ margin: 0, fontSize: 14, fontWeight: 400, flexGrow: 1 }}>Crew</h2>
+        <span className="mono muted" style={{ fontSize: 10, letterSpacing: ".1em" }}>{how === "team" ? "ATLAS LEADS" : how === "turns" ? "TAKING TURNS" : "DIRECT CHAT"}</span>
+      </div>
+      {!sel.length && <div className="muted" style={{ fontSize: 13 }}>Pick agents on the left.</div>}
+      {sel.map((id) => {
+        const a = agents.find((x) => x.id === id);
+        const st = status(id);
+        return (
+          <div key={id} className="row" style={{ gap: 10, padding: "6px 8px", borderRadius: 12, background: st === "working" ? "rgba(255,43,58,0.10)" : undefined, border: `1px solid ${st === "working" ? "rgba(255,43,58,0.45)" : "transparent"}`, transition: "all .3s" }}>
+            <Sigil id={id} size={30} glow={st === "working"} />
+            <span style={{ flexGrow: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>{a?.name ?? id}</span>
+              <span className="muted" style={{ display: "block", fontSize: 11 }}>{a?.role}</span>
+            </span>
+            <span className="mono" style={{ fontSize: 9, letterSpacing: ".1em", color: st === "working" ? "#FF2B3A" : st === "done" ? "#F4F4F5" : st === "error" ? "#FF5A66" : "#71717A" }}>
+              {st === "working" && <span className="blink" style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#FF2B3A", marginRight: 6 }} />}
+              {st === "done" && "✓ "}
+              {LABEL[st]}
+            </span>
+          </div>
+        );
+      })}
+      {!lines.length && (
+        <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.55, paddingTop: 4 }}>
+          Ask something in the box. One agent is a direct chat; several work it out together — Team lets Atlas hand out the tasks.
+          {!state.engines.claudeKeys && (
+            <button type="button" className="btn btn-red" style={{ marginTop: 12, width: "100%" }} onClick={() => go("guide")}>
+              Set up your first AI <Icon d={P.arrow} size={14} />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
