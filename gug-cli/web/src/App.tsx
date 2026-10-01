@@ -13,6 +13,7 @@ import { Account } from "./pages/Account";
 import { Guide } from "./pages/Guide";
 import { Academy } from "./pages/Academy";
 import { Soon } from "./pages/Soon";
+import { Flows } from "./pages/Flows";
 
 interface Ctx {
   state: State;
@@ -38,7 +39,7 @@ export const META: Record<Route, { title: string; section: string; icon: string;
   markets: { title: "Markets", section: "Money", icon: "Markets", tips: ["Coming next — ask Quant in the Agent room meanwhile. Not financial advice."] },
   studio: { title: "Studio", section: "Create", icon: "Studio", tips: ["Coming next — Muse can already write prompts and briefs."] },
   growth: { title: "Growth", section: "Create", icon: "Growth", tips: ["Coming next — Echo can already plan posts."] },
-  flows: { title: "Flows", section: "Automate", icon: "Flows", tips: ["Coming next — Relay can already design flows with you."] },
+  flows: { title: "Flows", section: "Automate", icon: "Flows", tips: ["A flow runs agents on a schedule and drops the result in your inbox or Discord.", "Each step sees the step before — use {{previous}} to place it.", "Scheduled flows run while gug serve is running."] },
   academy: { title: "Academy", section: "Learn", icon: "Academy", tips: ["Pick a playbook, tick steps as you go — progress is saved in this browser.", "Run with agents sends the playbook to the right AIs."] },
   guide: { title: "Setup guide", section: "Learn", icon: "Guide", tips: ["Five steps: engines, access, test, create an AI, first job.", "Keys are tested before they’re saved."] },
   settings: { title: "Settings", section: "System", icon: "Settings", tips: ["API keys are encrypted on this computer.", "Engines decide when to use Claude, Claude Code or local models.", "Sound & motion tunes effects."] },
@@ -111,7 +112,7 @@ export function App() {
     markets: <Soon route="markets" />,
     studio: <Soon route="studio" />,
     growth: <Soon route="growth" />,
-    flows: <Soon route="flows" />,
+    flows: <Flows />,
     academy: <Academy />,
     guide: <Guide />,
     settings: <Settings />,

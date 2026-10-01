@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import path from "node:path";
 import type { EngineId } from "./agents.js";
 import type { Sealed } from "./crypto.js";
+import type { Flow, InboxItem } from "./flows.js";
 
 export interface Prefs {
   engine: EngineId;
@@ -26,11 +27,13 @@ export interface DB {
   prefs: Prefs;
   secrets: Record<string, Sealed>;
   chats: Record<string, ChatMessage[]>;
+  flows: Flow[];
+  inbox: InboxItem[];
 }
 
 export const defaultPrefs = (): Prefs => ({ engine: "auto", codePermission: "acceptEdits", localUrl: "http://127.0.0.1:11434", localModel: "", agents: {} });
 
-const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {} });
+const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {}, flows: [], inbox: [] });
 
 export class Store {
   data: DB;

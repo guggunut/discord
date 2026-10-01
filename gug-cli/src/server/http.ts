@@ -27,6 +27,7 @@ import {
   vaultSet,
 } from "./local.js";
 import { control, nowPlaying, type MediaAction } from "./media.js";
+import { TEMPLATES, runFlow, validateFlow } from "./flows.js";
 import { chat, roundtable, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -245,6 +246,47 @@ export function createApp(store: Store) {
   app.delete("/api/apps/:name", (req, res) => {
     const map: Record<string, string[]> = { github: ["github", "github_login"], discord: ["discord_webhook"], anthropic: ["anthropic", "anthropic_2", "anthropic_3"] };
     for (const k of map[String(req.params.name)] ?? []) vaultDelete(store, k);
+    res.json({ ok: true });
+  });
+
+  // ---------- flows ----------
+  const flowById = (id: string) => {
+    const f = store.data.flows.find((x) => x.id === id);
+    if (!f) throw new HttpError(404, "Flow not found.");
+    return f;
+  };
+  app.get("/api/flows", (_req, res) => res.json({ flows: store.data.flows, templates: TEMPLATES, inbox: store.data.inbox.slice(0, 50) }));
+  app.post("/api/flows", (req, res) => {
+    if (store.data.flows.length >= 50) throw new HttpError(400, "That's a lot of flows — delete some first.");
+    const f = validateFlow(req.body);
+    store.data.flows.push(f);
+    store.save();
+    res.json(f);
+  });
+  app.put("/api/flows/:id", (req, res) => {
+    const cur = flowById(String(req.params.id));
+    const next = validateFlow(req.body, cur);
+    store.data.flows = store.data.flows.map((f) => (f.id === cur.id ? next : f));
+    store.save();
+    res.json(next);
+  });
+  app.delete("/api/flows/:id", (req, res) => {
+    store.data.flows = store.data.flows.filter((f) => f.id !== String(req.params.id));
+    store.save();
+    res.json({ ok: true });
+  });
+  app.post("/api/flows/:id/run", async (req, res) => {
+    const f = flowById(String(req.params.id));
+    await sse(res, (signal) => runFlow(store, f, "manual", signal));
+  });
+  app.post("/api/inbox/read", (_req, res) => {
+    store.data.inbox.forEach((i) => (i.read = true));
+    store.save();
+    res.json({ ok: true });
+  });
+  app.delete("/api/inbox/:id", (req, res) => {
+    store.data.inbox = store.data.inbox.filter((i) => i.id !== String(req.params.id));
+    store.save();
     res.json({ ok: true });
   });
 

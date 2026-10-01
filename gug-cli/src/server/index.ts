@@ -2,12 +2,14 @@ import { config, paths } from "./config.js";
 import { createApp } from "./http.js";
 import { accessUrl, getAccessToken, getVaultKey } from "./local.js";
 import { Store } from "./store.js";
+import { startScheduler } from "./flows.js";
 
 export function startServer(opts: { port?: number; host?: string; quiet?: boolean } = {}) {
   const store = new Store(paths.db());
   getVaultKey();
   getAccessToken();
   const app = createApp(store);
+  const stopScheduler = startScheduler(store);
   const port = opts.port ?? config.port;
   const host = opts.host ?? config.host;
   config.port = port;
@@ -19,6 +21,7 @@ export function startServer(opts: { port?: number; host?: string; quiet?: boolea
     console.log(`    \x1b[2mdata: ${config.dataDir} · stop with Ctrl+C\x1b[0m\n`);
   });
   const shutdown = () => {
+    stopScheduler();
     store.flush();
     server.close(() => process.exit(0));
   };
