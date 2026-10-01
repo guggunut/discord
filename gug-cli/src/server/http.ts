@@ -44,7 +44,7 @@ import { parsePlaceId, recordSnapshot, robloxStats, universeFor } from "./roblox
 import { connectShopify, disconnectShopify, syncShopify } from "./shopify.js";
 import { deployProject, vercelUser } from "./vercel.js";
 import { avatarVersions, readAvatar, removeAvatar, saveAvatar } from "./avatars.js";
-import { MCP_PRESETS, blenderSnapshot, removeServer, testServer, validateServer, writeClaudeConfig } from "./mcp.js";
+import { MCP_PRESETS, blenderSnapshot, callTool, listTools, removeServer, testServer, validateServer, writeClaudeConfig } from "./mcp.js";
 import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { changes, takeSnapshot, undo } from "./history.js";
@@ -790,6 +790,21 @@ export function createApp(store: Store) {
     m.testedAt = new Date().toISOString();
     store.save();
     res.json({ tools });
+  });
+  app.get("/api/mcp/:id/tools", async (req, res) => {
+    const m = mcpById(String(req.params.id));
+    const tools = await listTools(store, m);
+    m.tools = tools.map((t) => t.name);
+    m.testedAt = new Date().toISOString();
+    store.save();
+    res.json(tools);
+  });
+  app.post("/api/mcp/:id/call", async (req, res) => {
+    const m = mcpById(String(req.params.id));
+    const tool = str(req.body?.tool, 120);
+    const args = req.body?.args && typeof req.body.args === "object" && !Array.isArray(req.body.args) ? req.body.args : {};
+    if (!tool) throw new HttpError(400, "Pick a tool.");
+    res.json(await callTool(store, m, tool, args));
   });
   app.get("/api/live/blender", async (_req, res) => {
     const snap = await blenderSnapshot();

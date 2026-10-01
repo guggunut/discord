@@ -9,7 +9,7 @@ import { after, test } from "node:test";
 const dir = mkdtempSync(path.join(tmpdir(), "gug-mcp-"));
 process.env.GUG_DATA = dir;
 const { Store } = await import("../src/server/store.ts");
-const { blenderSnapshot, testServer, validateServer, writeClaudeConfig } = await import("../src/server/mcp.ts");
+const { blenderSnapshot, callTool, listTools, testServer, validateServer, writeClaudeConfig } = await import("../src/server/mcp.ts");
 
 // A minimal stdio MCP server.
 const fakeMcp = path.join(dir, "fake-mcp.mjs");
@@ -20,7 +20,10 @@ const send = (m) => process.stdout.write(JSON.stringify(m) + "\\n");
 rl.on("line", (l) => {
   const m = JSON.parse(l);
   if (m.method === "initialize") send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "fake", version: "1" } } });
-  if (m.method === "tools/list") send({ jsonrpc: "2.0", id: m.id, result: { tools: [{ name: "get_scene_info" }, { name: "execute_blender_code" }] } });
+  if (m.method === "tools/list") send({ jsonrpc: "2.0", id: m.id, result: { tools: [{ name: "get_scene_info", description: "Scene summary", inputSchema: { type: "object", properties: {} } }, { name: "execute_blender_code" }] } });
+  if (m.method === "tools/call" && m.params.name === "get_scene_info") send({ jsonrpc: "2.0", id: m.id, result: { content: [{ type: "text", text: "Scene: Lamp" }, { type: "image", data: "iVBORw0KGgo=", mimeType: "image/png" }, { type: "resource", resource: {} }] } });
+  if (m.method === "tools/call" && m.params.name === "execute_blender_code") send({ jsonrpc: "2.0", id: m.id, result: { isError: true, content: [{ type: "text", text: "code was " + m.params.arguments.code }] } });
+  if (m.method === "tools/call" && m.params.name === "nope") send({ jsonrpc: "2.0", id: m.id, error: { code: -32602, message: "Unknown tool: nope" } });
 });`);
 
 test("servers are validated, secrets go to the vault, and Claude Code gets a config", () => {
@@ -46,6 +49,19 @@ test("testing a server does a real MCP handshake and lists its tools", async () 
   assert.deepEqual(await testServer(store, s, 10_000), ["get_scene_info", "execute_blender_code"]);
   const broken = validateServer(store, { name: "broken", command: process.execPath, args: ["-e", "process.exit(3)"] });
   await assert.rejects(testServer(store, broken, 10_000), /exited \(code 3\)/);
+});
+
+test("tools can be listed with schemas and run by hand", async () => {
+  const store = new Store(path.join(dir, "db3.json"));
+  const s = validateServer(store, { name: "fake", command: process.execPath, args: [fakeMcp] });
+  const tools = await listTools(store, s, 10_000);
+  assert.deepEqual(tools[0], { name: "get_scene_info", description: "Scene summary", inputSchema: { type: "object", properties: {} } });
+  const r = await callTool(store, s, "get_scene_info", {}, 10_000);
+  assert.deepEqual(r, { isError: false, content: [{ type: "text", text: "Scene: Lamp" }, { type: "image", data: "iVBORw0KGgo=", mimeType: "image/png" }, { type: "other", text: "[resource content]" }] });
+  const bad = await callTool(store, s, "execute_blender_code", { code: "1/0" }, 10_000);
+  assert.equal(bad.isError, true);
+  assert.equal(bad.content[0].type === "text" && bad.content[0].text, "code was 1/0");
+  await assert.rejects(callTool(store, s, "nope", {}, 10_000), /Unknown tool/);
 });
 
 // A stand-in for the Blender MCP add-on's socket.

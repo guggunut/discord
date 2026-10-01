@@ -109,8 +109,17 @@ export function writeClaudeConfig(store: Store): { configPath: string; servers: 
   return { configPath, servers: on.map((s) => s.name) };
 }
 
-/** Starts the server, does the MCP handshake and lists its tools, then stops it. */
-export function testServer(store: Store, s: McpServer, timeoutMs = 45_000): Promise<string[]> {
+export interface ToolInfo {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
+}
+export type ToolContent = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "other"; text: string };
+
+type Rpc = (method: string, params?: object) => Promise<any>;
+
+/** Starts the server, does the MCP handshake, runs `work`, then stops it. */
+function session<T>(store: Store, s: McpServer, timeoutMs: number, work: (rpc: Rpc) => Promise<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     const win = process.platform === "win32";
     const quote = (a: string) => (/[\s"&|<>^]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a);
@@ -119,15 +128,24 @@ export function testServer(store: Store, s: McpServer, timeoutMs = 45_000): Prom
     let out = "";
     let err = "";
     let done = false;
-    const finish = (e: Error | null, tools?: string[]) => {
+    let nextId = 1;
+    const waiting = new Map<number, { ok: (v: any) => void; fail: (e: Error) => void }>();
+    const finish = (e: Error | null, value?: T) => {
       if (done) return;
       done = true;
       clearTimeout(timer);
       child.kill();
-      e ? reject(e) : resolve(tools!);
+      e ? reject(e) : resolve(value as T);
     };
     const timer = setTimeout(() => finish(new HttpError(504, `No answer after ${timeoutMs / 1000}s. ${err.trim().split("\n").slice(-1)[0] ?? ""}`.trim())), timeoutMs);
     const send = (m: object) => child.stdin.write(`${JSON.stringify(m)}\n`);
+    const rpc: Rpc = (method, params = {}) =>
+      new Promise((ok, fail) => {
+        const id = nextId++;
+        waiting.set(id, { ok, fail });
+        send({ jsonrpc: "2.0", id, method, params });
+      });
+    child.stdin.on("error", () => {}); // the server may exit before reading everything
     child.on("error", (e) => finish(new HttpError(400, `Couldn't start “${s.command}”: ${e.message}`)));
     child.on("close", (code) => finish(new HttpError(400, `The server exited (code ${code}). ${err.trim().split("\n").slice(-2).join(" ")}`.trim())));
     child.stderr.on("data", (d: Buffer) => (err = (err + d.toString()).slice(-2000)));
@@ -144,17 +162,46 @@ export function testServer(store: Store, s: McpServer, timeoutMs = 45_000): Prom
         } catch {
           continue;
         }
-        if (msg.id === 1) {
-          if (msg.error) return finish(new HttpError(502, `Handshake failed: ${msg.error.message ?? "unknown error"}`));
-          send({ jsonrpc: "2.0", method: "notifications/initialized" });
-          send({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
-        } else if (msg.id === 2) {
-          if (msg.error) return finish(new HttpError(502, `Couldn't list tools: ${msg.error.message ?? "unknown error"}`));
-          finish(null, (msg.result?.tools ?? []).map((t: { name: string }) => String(t.name)).slice(0, 100));
-        }
+        const w = typeof msg.id === "number" ? waiting.get(msg.id) : undefined;
+        if (!w || !("result" in msg || "error" in msg)) continue;
+        waiting.delete(msg.id);
+        msg.error ? w.fail(new HttpError(502, msg.error.message ?? "MCP error")) : w.ok(msg.result);
       }
     });
-    send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "gug-cli", version: "0.3.0" } } });
+    rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "gug-cli", version: "0.3.0" } })
+      .catch((e: Error) => Promise.reject(new HttpError(502, `Handshake failed: ${e.message}`)))
+      .then(() => {
+        send({ jsonrpc: "2.0", method: "notifications/initialized" });
+        return work(rpc);
+      })
+      .then((v) => finish(null, v), (e: Error) => finish(e));
+  });
+}
+
+/** The server's tools with their descriptions and input schemas. */
+export function listTools(store: Store, s: McpServer, timeoutMs = 45_000): Promise<ToolInfo[]> {
+  return session(store, s, timeoutMs, async (rpc) => {
+    const r = await rpc("tools/list").catch((e: Error) => Promise.reject(new HttpError(502, `Couldn't list tools: ${e.message}`)));
+    return (r?.tools ?? []).slice(0, 100).map((t: any) => ({ name: String(t.name), description: t.description ? String(t.description).slice(0, 600) : undefined, inputSchema: t.inputSchema && typeof t.inputSchema === "object" ? t.inputSchema : undefined }));
+  });
+}
+
+/** Handshake + list the tool names (used by "Test"). */
+export async function testServer(store: Store, s: McpServer, timeoutMs = 45_000): Promise<string[]> {
+  return (await listTools(store, s, timeoutMs)).map((t) => t.name);
+}
+
+/** Runs one tool by hand and returns what it gave back (text and images). */
+export function callTool(store: Store, s: McpServer, name: string, args: Record<string, unknown>, timeoutMs = 90_000): Promise<{ isError: boolean; content: ToolContent[] }> {
+  return session(store, s, timeoutMs, async (rpc) => {
+    const r = await rpc("tools/call", { name, arguments: args });
+    let budget = 6 * 1024 * 1024;
+    const content: ToolContent[] = (r?.content ?? []).slice(0, 20).map((c: any): ToolContent => {
+      if (c?.type === "text") return { type: "text", text: String(c.text ?? "").slice(0, 20_000) };
+      if (c?.type === "image" && typeof c.data === "string" && /^image\/(png|jpeg|gif|webp)$/.test(c.mimeType) && (budget -= c.data.length) > 0) return { type: "image", data: c.data, mimeType: c.mimeType };
+      return { type: "other", text: `[${c?.type ?? "unknown"} content]` };
+    });
+    return { isError: !!r?.isError, content };
   });
 }
 

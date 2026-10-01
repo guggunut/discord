@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { api } from "./api";
 import { useApp } from "./App";
 import { play } from "./sfx";
+import { McpTools } from "./McpTools";
 import { Brand, Icon, P, Switch } from "./ui";
 
 export interface McpServer {
@@ -30,6 +31,7 @@ export function McpPanel({ onClose, onChange }: { onClose: () => void; onChange:
   const [presets, setPresets] = useState<Record<string, Preset>>({});
   const [draft, setDraft] = useState<{ id?: string; app: McpServer["app"]; name: string; command: string; args: string; env: string } | null>(null);
   const [busy, setBusy] = useState("");
+  const [toolsFor, setToolsFor] = useState<string | null>(null);
 
   const load = async () => {
     const r = await api<{ servers: McpServer[]; presets: Record<string, Preset> }>("/api/mcp");
@@ -96,7 +98,8 @@ export function McpPanel({ onClose, onChange }: { onClose: () => void; onChange:
         </p>
 
         {servers.map((s) => (
-          <div key={s.id} className="mcp-row">
+          <div key={s.id} className={`mcp-wrap ${toolsFor === s.id ? "open" : ""}`}>
+          <div className="mcp-row">
             <Brand name={BRANDS[s.app]} size={40} variant={s.enabled ? "red" : ""} />
             <div style={{ flexGrow: 1, minWidth: 0 }}>
               <div className="row" style={{ gap: 8 }}>
@@ -106,10 +109,13 @@ export function McpPanel({ onClose, onChange }: { onClose: () => void; onChange:
               <div className="mono muted" style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[s.command, ...s.args].join(" ")}</div>
               {s.tools && <div className="muted" style={{ fontSize: 11, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.tools.slice(0, 6).join(" · ")}{s.tools.length > 6 ? " …" : ""}</div>}
             </div>
+            <button type="button" className={`chip ${toolsFor === s.id ? "on" : ""}`} aria-expanded={toolsFor === s.id} onClick={() => setToolsFor(toolsFor === s.id ? null : s.id)}>Tools</button>
             <button type="button" className="chip" disabled={!!busy} onClick={() => void test(s)}>{busy === s.id ? "Testing…" : "Test"}</button>
             <button type="button" className="chip" onClick={() => setDraft({ id: s.id, app: s.app, name: s.name, command: s.command, args: s.args.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(" "), env: s.envKeys.map((k) => `${k}=`).join("\n") })}>Edit</button>
             <Switch on={s.enabled} label={`Use ${s.name}`} onChange={(v) => void toggle(s, v)} />
             <button type="button" className="chip" aria-label={`Remove ${s.name}`} style={{ padding: "0 7px" }} onClick={() => void remove(s)}><Icon d={P.x} size={11} /></button>
+          </div>
+          {toolsFor === s.id && <McpTools serverId={s.id} serverName={s.name} />}
           </div>
         ))}
 
