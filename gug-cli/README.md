@@ -47,25 +47,26 @@ Restart `gug serve` and the Code tab and Forge will use it automatically.
 
 | Screen | What it does |
 | --- | --- |
-| **Command center** | Pick agents and message them all. One agent = direct chat; several = they take turns, build on each other, and Atlas sums up. Drag the 3D core to spin it, click to pulse; modes change its shape. The **Today** panel is a live briefing: new inbox items, today's posts, profit, market movers and the next automation. |
-| **Agent room** | Twelve agents (Atlas, Ledger, Quant, Muse, Echo, Relay, Scout, Forge, Vox, Tempo, Sage, Sentinel), each with its own chat history and engine setting. |
-| **Code** | Vibe coding: describe what you want, Forge builds it. *Claude Code* works inside the project folder; *Claude API* writes complete files. Live sandboxed preview, file editor, build log. |
-| **Apps** | Claude API, Claude Code, GitHub (list + clone repos into Code), Discord alerts, local models. |
-| **Ventures** | Income tracker for stores, Roblox games (entered in R$, converted at your DevEx rate) and digital products: sales, costs, refunds, KPIs vs the previous period, charts, and a Ledger review of the numbers. Sample data to explore. |
+| **Command center** | Pick agents and message them all. One agent = direct chat; several = they take turns, build on each other, and Atlas sums up. With several agents, choose **Turns** (they answer in turn and build on each other) or **Team** (Atlas hands each agent a concrete task, they do their part with their tools, Atlas combines it). Press the mic to dictate. Drag the 3D core to spin it, click to pulse; modes change its shape. The **Today** panel is a live briefing: new inbox items, today's posts, profit, market movers and the next automation. |
+| **Agent room** | Twelve agents (Atlas, Ledger, Quant, Muse, Echo, Relay, Scout, Forge, Vox, Tempo, Sage, Sentinel), each with its own chat history, engine and data-access setting. Agents use **tools** on your GUG-cli data — Ledger reads and logs money, Quant checks prices, Echo drafts posts, Relay sets up flows, Tempo reads your calendar and focus time — and every action shows in the chat. **Shared memory** (an About-you note plus facts, and “remember that…”) reaches all twelve. |
+| **Code** | Vibe coding: describe what you want, Forge builds it. Start from a template (landing page, arcade game, Roblox Luau scripts) and download any project as a .zip. *Claude Code* works inside the project folder; *Claude API* writes complete files. Live sandboxed preview, file editor, build log. |
+| **Apps** | Claude API, Claude Code, GitHub (list + clone repos into Code), Discord alerts, local models, and **Local API** tokens so your own scripts — like a Discord bot on the same PC — can ask the agents (ask-only, rate-limited; a ready-made slash command is included). |
+| **Ventures** | Income tracker for stores, Roblox games (entered in R$, converted at your DevEx rate) and digital products: sales, costs, refunds, KPIs vs the previous period, charts, and a Ledger review of the numbers. Sample data to explore, and **CSV import** (Shopify order exports are read automatically; re-importing skips orders already there). |
 | **Markets** | Watchlist with live quotes (Yahoo Finance for stocks/funds, CoinGecko for crypto — public feeds, may be delayed), interactive charts with range stats, price alerts to your inbox, a $10,000 **paper-trading** account, and Quant explaining charts in plain English. Never real trades, never advice. |
 | **Studio** | Muse draws vector artwork (sanitised SVG, export SVG or 2048px PNG, drop into a Code project, hand to Echo for captions). Vox writes voiceover scripts and reads them with your computer's built-in voices. |
 | **Growth** | Weekly content calendar for Instagram, TikTok, YouTube, X and Discord. Echo plans a week of drafts and rewrites captions; approve, post to Discord in one click, log views and likes. |
 | **Flows** | Automations: run one or more agents on a schedule (daily, every N minutes) or on demand, each step seeing the last, delivered to your inbox or Discord. |
 | **Academy** | Eight playbooks (AI dropshipping, AI-assisted investing, Roblox income, faceless channels and more) with progress tracking and a button to run the next step with the right agents. |
 | **Setup guide** | Five interactive steps from zero to your first agent job. |
-| **Settings** | Encrypted API keys (with backup keys), engine routing, Claude Code permissions, sound & motion, desktop notifications, and backup/restore (never includes keys). |
+| **Settings** | Encrypted API keys (with backup keys), engine routing, Claude Code permissions, **Router & usage** (tokens per model, fallbacks, what's cooling down), sound & motion, desktop notifications, and backup/restore (never includes keys). |
+| **Focus timer** | 25/50/90-minute sessions from the top bar with optional brown noise; minutes and streaks show in the Today briefing and Tempo/Sage can see them. |
 | **Now playing** | Shows and controls whatever music is playing on your computer. |
 
-**Anywhere:** press **Ctrl/⌘ + K** (or `/`) for the command palette — jump to any screen, run quick actions, or type a question and it's routed to the agent whose speciality fits (a tax question goes to Ledger, a logo to Muse). On narrow windows a bottom bar replaces the side rail.
+**Anywhere:** press **Ctrl/⌘ + K** (or `/`) for the command palette, `g` then a letter to jump (g M = Markets), and `?` for all shortcuts. The palette jumps to any screen, run quick actions, or type a question and it's routed to the agent whose speciality fits (a tax question goes to Ledger, a logo to Muse). On narrow windows a bottom bar replaces the side rail.
 
 ### Engines and the router
 
-- **Claude** — `claude-opus-5-5` first, falling back to `claude-sonnet-5-5` and `claude-haiku-4-5` (and across your backup keys) on rate limits, overloads or outages. Policy refusals are retried server-side with Anthropic's `fallbacks: "default"`.
+- **Claude** — `claude-opus-5-5` first, falling back to `claude-sonnet-5-5` and `claude-haiku-4-5` (and across your backup keys) on rate limits, overloads or outages. A key+model that just hit a limit **cools down** (honouring `retry-after`) and later requests skip straight past it. Policy refusals are retried server-side with Anthropic's `fallbacks: "default"`.
 - **Claude Code** — runs `claude -p … --output-format stream-json` in your project folder with a safe tool allow-list (read, edit, tests, `git status/diff`).
 - **Local** — any Ollama-compatible server on `localhost`.
 - **Auto** — code/repo work → Claude Code (when installed); "private/offline" → local; everything else → Claude.
