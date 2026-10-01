@@ -6,6 +6,7 @@ import { runClaude } from "./engines/claude.js";
 import type { GugEvent } from "./events.js";
 import { HttpError, claudeKeys, vaultGet } from "./local.js";
 import type { Store } from "./store.js";
+import { TOOL_SYSTEM, toolsFor } from "./tools.js";
 
 export type Trigger = { type: "manual" } | { type: "every"; minutes: number } | { type: "daily"; at: string } | { type: "weekly"; day: number; at: string };
 export interface FlowStep {
@@ -109,7 +110,10 @@ export async function* runFlow(store: Store, f: Flow, trigger: "manual" | "sched
     const agent = agentById(s.agent)!;
     const prompt = fill(s.prompt, previous) + (previous && !s.prompt.includes("{{previous}}") ? `\n\nOutput from the previous step:\n${previous}` : "");
     let out = "";
-    for await (const ev of runClaude({ keys: claudeKeys(store), system: systemFor(agent), messages: [{ role: "user", content: prompt }], mode: "fast", agent: agent.id, signal, maxTokens: 4000 })) {
+    // Flows run unattended, so agents may look things up but never change your data.
+    const tools = toolsFor(store, agent.id).filter((t) => !t.writes);
+    const system = tools.length ? `${systemFor(agent)}\n\n${TOOL_SYSTEM} This is a scheduled automation: your tools are read-only and nobody is watching live, so finish with the final result.\nToday is ${new Date().toDateString()}.` : systemFor(agent);
+    for await (const ev of runClaude({ keys: claudeKeys(store), system, messages: [{ role: "user", content: prompt }], mode: "fast", agent: agent.id, signal, maxTokens: 4000, tools })) {
       if (ev.type === "text") out += ev.text;
       if (ev.type === "error") ok = false;
       yield { ...ev, step: i };
@@ -162,8 +166,8 @@ export function startScheduler(store: Store): () => void {
 }
 
 export const TEMPLATES: Omit<Flow, "id" | "createdAt" | "runs">[] = [
-  { name: "Morning plan", enabled: false, trigger: { type: "daily", at: "08:00" }, steps: [{ agent: "tempo", prompt: "It's {{date}}. Write me a focused plan for today: 3 priorities, time blocks with breaks, and one thing to say no to. Keep it under 150 words." }], deliver: { inbox: true, discord: false } },
+  { name: "Morning plan", enabled: false, trigger: { type: "daily", at: "08:00" }, steps: [{ agent: "tempo", prompt: "It's {{date}}. Check today's posts, my automations and how much I focused yesterday, then write me a focused plan for today: 3 priorities, time blocks with breaks, and one thing to say no to. Keep it under 150 words." }], deliver: { inbox: true, discord: false } },
   { name: "Weekly content ideas", enabled: false, trigger: { type: "daily", at: "09:00" }, steps: [{ agent: "scout", prompt: "List 5 trending topics this week for a desk-setup / productivity audience, one line each." }, { agent: "echo", prompt: "Turn these into 5 short-form video ideas with a hook line each:\n{{previous}}" }], deliver: { inbox: true, discord: false } },
-  { name: "Money check-in", enabled: false, trigger: { type: "weekly", day: 0, at: "18:00" }, steps: [{ agent: "ledger", prompt: "Give me a 5-point weekly money check-in checklist for someone running a small online store and a Roblox game." }], deliver: { inbox: true, discord: false } },
+  { name: "Money check-in", enabled: false, trigger: { type: "weekly", day: 0, at: "18:00" }, steps: [{ agent: "ledger", prompt: "Weekly money check-in: look at my last 7 days in Ventures (compare with the week before), then give me 3 wins, 2 leaks to fix, and 1 thing to try next week. If I have no data yet, give me a 5-point checklist instead." }], deliver: { inbox: true, discord: false } },
   { name: "Security sweep", enabled: false, trigger: { type: "manual" }, steps: [{ agent: "sentinel", prompt: "Give me a 6-item monthly security checklist for my accounts, API keys and devices, most important first." }], deliver: { inbox: true, discord: false } },
 ];
