@@ -358,6 +358,31 @@ export function createApp(store: Store) {
     store.save();
     res.json(e);
   });
+  app.post("/api/ventures/import", (req, res) => {
+    const rows: unknown[] = Array.isArray(req.body?.entries) ? req.body.entries.slice(0, 5000) : [];
+    const streamId = str(req.body?.streamId, 60);
+    if (v().entries.length + rows.length > 20_000) throw new HttpError(400, "That would go over the 20,000 entry limit.");
+    // Orders already imported (same order number in the same stream) are skipped, so re-importing is safe.
+    const have = new Set(v().entries.filter((e) => e.streamId === streamId && /^Shopify #/.test(e.note)).map((e) => `${e.type}|${e.note}`));
+    let added = 0;
+    let skipped = 0;
+    for (const r of rows as Record<string, unknown>[]) {
+      try {
+        const e = validateEntry(v(), { ...r, streamId });
+        if (/^Shopify #/.test(e.note) && have.has(`${e.type}|${e.note}`)) {
+          skipped++;
+          continue;
+        }
+        v().entries.push(e);
+        have.add(`${e.type}|${e.note}`);
+        added++;
+      } catch {
+        skipped++;
+      }
+    }
+    store.save();
+    res.json({ added, skipped });
+  });
   app.delete("/api/ventures/entries/:id", (req, res) => {
     v().entries = v().entries.filter((e) => e.id !== String(req.params.id));
     store.save();

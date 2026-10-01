@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { fromColumns, fromShopify, isShopify, parseCsv, type ImportEntry } from "../csv";
 import { api, stream, type GugEvent } from "../api";
 import { useApp } from "../App";
 import { Md } from "../Md";
 import { play } from "../sfx";
-import { BRAND, Brand, Icon, P, Seg, Sigil } from "../ui";
+import { BRAND, Brand, Icon, P, Seg, Sigil, Switch } from "../ui";
 
 type Range = "7d" | "30d" | "90d" | "12m";
 type Kind = "shopify" | "roblox" | "gumroad" | "etsy" | "youtube" | "other";
@@ -34,6 +35,7 @@ export function Ventures() {
   const [range, setRange] = useState<Range>(() => (localStorage.getItem("gug-vrange") as Range) || "30d");
   const [s, setS] = useState<Summary | null>(null);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [review, setReview] = useState("");
   const [question, setQuestion] = useState("");
   const [reviewing, setReviewing] = useState(false);
@@ -98,10 +100,16 @@ export function Ventures() {
             <Icon d={P.wand} size={12} /> Load sample data
           </button>
         )}
+        {s.streams.length > 0 && (
+          <button type="button" className="chip" onClick={() => setImporting(!importing)}>
+            <Icon d={P.down} size={12} /> Import CSV
+          </button>
+        )}
         <button type="button" className="btn btn-white" onClick={() => setAdding(true)}>
           <Icon d={P.plus} size={14} /> Add stream
         </button>
       </div>
+      {importing && s.streams.length > 0 && <ImportCsv streams={s.streams} currency={s.currency} onClose={() => setImporting(false)} onDone={() => void load()} />}
 
       {adding && <AddStream onClose={() => setAdding(false)} onSave={(body) => act(() => api("/api/ventures/streams", { body }), "Stream added.").then(() => setAdding(false))} />}
 
@@ -407,5 +415,101 @@ function AddEntry({ streams, currency, onSave }: { streams: StreamRow[]; currenc
         <button type="submit" className="btn btn-red" disabled={!amount}>Log</button>
       </div>
     </form>
+  );
+}
+
+function ImportCsv({ streams, currency, onClose, onDone }: { streams: StreamRow[]; currency: string; onClose: () => void; onDone: () => void }) {
+  const { toast } = useApp();
+  const [rows, setRows] = useState<string[][] | null>(null);
+  const [fileName, setFileName] = useState("");
+  const [streamId, setStreamId] = useState(streams.find((x) => x.kind === "shopify")?.id ?? streams[0].id);
+  const [cols, setCols] = useState({ date: 0, amount: 1, note: -1, dayFirst: true, skipHeader: true });
+  const [busy, setBusy] = useState(false);
+  const shopify = !!rows && isShopify(rows[0]);
+  const entries: ImportEntry[] = !rows ? [] : shopify ? fromShopify(rows) : fromColumns(rows, cols);
+  const total = entries.reduce((a, e) => a + (e.type === "sale" ? e.amount : -e.amount), 0);
+  const header = rows?.[0] ?? [];
+
+  const pick = async (f: File) => {
+    const r = parseCsv(await f.text());
+    if (!r.length) return toast("That file looks empty.", "err");
+    setRows(r);
+    setFileName(f.name);
+    // Guess columns for generic sheets.
+    const h = r[0].map((x) => x.toLowerCase());
+    const find = (re: RegExp) => h.findIndex((x) => re.test(x));
+    setCols((c) => ({ ...c, date: Math.max(0, find(/date|created|paid|when|day/)), amount: Math.max(0, find(/amount|total|price|net|£|\$|value/)), note: find(/note|desc|item|product|what|name/) }));
+  };
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await api<{ added: number; skipped: number }>("/api/ventures/import", { body: { streamId, entries } });
+      play("success");
+      toast(`Imported ${r.added} entries${r.skipped ? ` · ${r.skipped} skipped (already there or invalid)` : ""}.`);
+      onDone();
+      onClose();
+    } catch (e) {
+      toast((e as Error).message, "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const sel = (label: string, key: "date" | "amount" | "note", allowNone = false) => (
+    <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "1 1 150px" }}>
+      <span className="eyebrow" style={{ fontSize: 10 }}>{label}</span>
+      <select className="field" value={cols[key]} onChange={(e) => setCols({ ...cols, [key]: Number(e.target.value) })}>
+        {allowNone && <option value={-1}>None</option>}
+        {header.map((h, i) => <option key={i} value={i}>{cols.skipHeader ? h || `Column ${i + 1}` : `Column ${i + 1} (${h})`}</option>)}
+      </select>
+    </label>
+  );
+  return (
+    <section className="card hot tx-drop" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="row">
+        <div style={{ flexGrow: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>Import from a spreadsheet</div>
+          <div className="muted" style={{ fontSize: 12 }}>A Shopify “Export orders” CSV is read automatically. Anything else: pick the date and amount columns. Negative amounts become costs.</div>
+        </div>
+        <button type="button" className="chip" aria-label="Close import" onClick={onClose}><Icon d={P.x} size={12} /></button>
+      </div>
+      <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+        <label className="btn" style={{ cursor: "pointer" }}>
+          <Icon d={P.file} size={14} /> {fileName || "Choose a .csv file"}
+          <input type="file" accept=".csv,text/csv" hidden onChange={(e) => e.target.files?.[0] && void pick(e.target.files[0])} />
+        </label>
+        <select aria-label="Import into stream" className="field" value={streamId} onChange={(e) => setStreamId(e.target.value)} style={{ width: 220 }}>
+          {streams.map((x) => <option key={x.id} value={x.id}>Into: {x.name}</option>)}
+        </select>
+        {rows && <span className="stat"><i className={shopify ? "" : "w"} />{shopify ? "Shopify orders export" : `${rows.length} rows`}</span>}
+      </div>
+      {rows && !shopify && (
+        <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          {sel("Date column", "date")}
+          {sel("Amount column", "amount")}
+          {sel("Note column", "note", true)}
+          <label className="row" style={{ gap: 8, fontSize: 12 }}><Switch on={cols.dayFirst} label="Day comes first in dates" onChange={(v) => setCols({ ...cols, dayFirst: v })} /> 01/10 = 1 Oct</label>
+          <label className="row" style={{ gap: 8, fontSize: 12 }}><Switch on={cols.skipHeader} label="First row is headings" onChange={(v) => setCols({ ...cols, skipHeader: v })} /> Has headings</label>
+        </div>
+      )}
+      {rows && (
+        <>
+          <div style={{ borderRadius: 12, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
+            {entries.slice(0, 6).map((e, i) => (
+              <div key={i} className="row mono" style={{ fontSize: 11, padding: "7px 12px", borderTop: i ? "1px solid rgba(255,255,255,0.05)" : undefined }}>
+                <span className="muted" style={{ width: 90 }}>{e.date}</span>
+                <span style={{ width: 60, color: e.type === "sale" ? "#A1A1AA" : "#FF5A66" }}>{e.type.toUpperCase()}</span>
+                <span style={{ flexGrow: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.note}</span>
+                <span>{e.type === "sale" ? "+" : "−"}{e.amount.toFixed(2)}</span>
+              </div>
+            ))}
+            {!entries.length && <div className="muted" style={{ padding: 12, fontSize: 12 }}>No usable rows with these columns yet.</div>}
+          </div>
+          <div className="row">
+            <span className="muted" style={{ fontSize: 12, flexGrow: 1 }}>{entries.length} entries · net {total.toFixed(2)} {currency}{entries.length > 6 ? " · showing the first 6" : ""}</span>
+            <button type="button" className="btn btn-red" disabled={busy || !entries.length} onClick={() => void run()}>{busy ? "Importing…" : `Import ${entries.length}`}</button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
