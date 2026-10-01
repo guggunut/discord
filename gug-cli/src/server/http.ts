@@ -42,6 +42,7 @@ import { focusStats } from "./focus.js";
 import { ask, bearer, createToken, listTokens } from "./integrations.js";
 import { parsePlaceId, recordSnapshot, robloxStats, universeFor } from "./roblox.js";
 import { connectShopify, disconnectShopify, syncShopify } from "./shopify.js";
+import { deployProject, vercelUser } from "./vercel.js";
 import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -257,6 +258,7 @@ export function createApp(store: Store) {
       github: { connected: !!vaultGet(store, "github"), login: vaultGet(store, "github_login") ?? null },
       discord: { connected: !!vaultGet(store, "discord_webhook") },
       local: { url: store.data.prefs.localUrl, model: store.data.prefs.localModel },
+      vercel: { connected: !!vaultGet(store, "vercel"), user: vaultGet(store, "vercel_user") ?? null },
     });
   });
   app.post("/api/apps/github", async (req, res) => {
@@ -282,8 +284,25 @@ export function createApp(store: Store) {
     vaultSet(store, "discord_webhook", url);
     res.json({ connected: true });
   });
+  app.post("/api/apps/vercel", async (req, res) => {
+    const token = str(req.body?.token, 200).trim();
+    const user = await vercelUser(token);
+    vaultSet(store, "vercel", token);
+    vaultSet(store, "vercel_user", user);
+    res.json({ connected: true, user });
+  });
+  app.post("/api/projects/:p/deploy", async (req, res) => {
+    const token = vaultGet(store, "vercel");
+    if (!token) throw new HttpError(400, "Connect Vercel in Apps first.");
+    const project = String(req.params.p);
+    const r = await deployProject(token, project, projectDir(project));
+    store.data.deploys = { ...store.data.deploys, [project]: { url: r.url, at: new Date().toISOString() } };
+    store.save();
+    res.json(r);
+  });
+  app.get("/api/projects/:p/deploy", (req, res) => res.json(store.data.deploys?.[String(req.params.p)] ?? null));
   app.delete("/api/apps/:name", (req, res) => {
-    const map: Record<string, string[]> = { github: ["github", "github_login"], discord: ["discord_webhook"], anthropic: ["anthropic", "anthropic_2", "anthropic_3"] };
+    const map: Record<string, string[]> = { vercel: ["vercel", "vercel_user"], github: ["github", "github_login"], discord: ["discord_webhook"], anthropic: ["anthropic", "anthropic_2", "anthropic_3"] };
     for (const k of map[String(req.params.name)] ?? []) vaultDelete(store, k);
     res.json({ ok: true });
   });

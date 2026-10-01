@@ -46,11 +46,12 @@ export interface DB {
   focus: { at: string; minutes: number; label: string }[];
   tokens: ApiToken[];
   robloxHistory: Record<string, RobloxSnapshot[]>;
+  deploys: Record<string, { url: string; at: string }>;
 }
 
 export const defaultPrefs = (): Prefs => ({ engine: "auto", codePermission: "acceptEdits", localUrl: "http://127.0.0.1:11434", localModel: "", agents: {} });
 
-const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {}, flows: [], inbox: [], ventures: emptyVentures(), markets: emptyMarkets(), studio: emptyStudio(), growth: emptyGrowth(), memory: emptyMemory(), usage: [], focus: [], tokens: [], robloxHistory: {} });
+const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {}, flows: [], inbox: [], ventures: emptyVentures(), markets: emptyMarkets(), studio: emptyStudio(), growth: emptyGrowth(), memory: emptyMemory(), usage: [], focus: [], tokens: [], robloxHistory: {}, deploys: {} });
 
 export class Store {
   data: DB;

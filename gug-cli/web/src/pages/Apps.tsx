@@ -9,6 +9,7 @@ interface AppsState {
   github: { connected: boolean; login: string | null };
   discord: { connected: boolean };
   local: { url: string; model: string };
+  vercel: { connected: boolean; user: string | null };
 }
 interface Repo {
   fullName: string;
@@ -27,7 +28,6 @@ const SOON: [string, string, string][] = [
   ["gcal", "Google Calendar", "Focus time for Tempo"],
   ["notion", "Notion", "Docs and playbooks"],
   ["slack", "Slack", "Talk to agents at work"],
-  ["vercel", "Vercel", "Deploy what Forge builds"],
   ["alpaca", "Alpaca", "Market data, paper trading"],
 ];
 
@@ -56,6 +56,7 @@ export function Apps() {
   const [repos, setRepos] = useState<Repo[] | null>(null);
   const [cloning, setCloning] = useState<string | null>(null);
   const [hook, setHook] = useState("");
+  const [vercelToken, setVercelToken] = useState("");
   const [localUrl, setLocalUrl] = useState("");
   const [localModel, setLocalModel] = useState("");
   const [busy, setBusy] = useState("");
@@ -132,6 +133,21 @@ export function Apps() {
               <input id="hook" className="field mono" style={{ fontSize: 12 }} placeholder="https://discord.com/api/webhooks/…" value={hook} onChange={(e) => setHook(e.target.value)} />
               <button type="button" className="btn btn-red" disabled={busy === "discord"} onClick={() => run("discord", async () => (await api("/api/apps/discord", { body: { url: hook } }), setHook(""), await load(), toast("Sent a test message to Discord.")))}>
                 {busy === "discord" ? "Testing…" : "Test & connect"}
+              </button>
+            </>
+          )}
+        </Tile>
+
+        <Tile brand="vercel" variant="white" name="Vercel" status={s.vercel.connected ? `CONNECTED · ${String(s.vercel.user).toUpperCase()}` : "PUBLISH SITES"} on={s.vercel.connected}>
+          <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.55 }}>Put what Forge builds online with one click from Code — you get a live https link to share.</p>
+          {s.vercel.connected ? (
+            <button type="button" className="btn" onClick={() => run("vercel-x", async () => (await api("/api/apps/vercel", { method: "DELETE" }), await load(), toast("Disconnected Vercel.")))}>Disconnect</button>
+          ) : (
+            <>
+              <label className="sr" htmlFor="vercel-token">Vercel token</label>
+              <input id="vercel-token" type="password" className="field mono" style={{ fontSize: 12 }} placeholder="Token from vercel.com/account/tokens" value={vercelToken} onChange={(e) => setVercelToken(e.target.value)} />
+              <button type="button" className="btn btn-red" disabled={busy === "vercel" || !vercelToken} onClick={() => run("vercel", async () => { const r = await api<{ user: string }>("/api/apps/vercel", { body: { token: vercelToken } }); setVercelToken(""); await load(); toast(`Connected Vercel as ${r.user}.`); })}>
+                {busy === "vercel" ? "Checking…" : "Connect"}
               </button>
             </>
           )}

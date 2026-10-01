@@ -36,6 +36,8 @@ export function Code() {
   const [picking, setPicking] = useState(false);
   const [templates, setTemplates] = useState<{ id: string; name: string; blurb: string }[]>([]);
   const [tpl, setTpl] = useState("blank");
+  const [deployed, setDeployed] = useState<{ url: string; at: string } | null>(null);
+  const [publishing, setPublishing] = useState(false);
   const [project, setProject] = useState(() => localStorage.getItem("gug-project") ?? "playground");
   const [files, setFiles] = useState<{ path: string; size: number }[]>([]);
   const [file, setFile] = useState<string | null>(null);
@@ -99,6 +101,24 @@ export function Code() {
     setEditing(false);
     setPreviewKey((k) => k + 1);
     toast(`Saved ${file}`);
+  };
+
+  useEffect(() => {
+    setDeployed(null);
+    api<{ url: string; at: string } | null>(`/api/projects/${project}/deploy`).then(setDeployed).catch(() => {});
+  }, [project]);
+  const publish = async () => {
+    if (!confirm(`Publish “${project}” to the public web with Vercel? Anyone with the link can see it.`)) return;
+    setPublishing(true);
+    try {
+      const r = await api<{ url: string }>(`/api/projects/${project}/deploy`, { body: {} });
+      setDeployed({ url: r.url, at: new Date().toISOString() });
+      toast(`Live at ${r.url} (it can take a few seconds to appear).`);
+    } catch (e) {
+      toast((e as Error).message, "err");
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const newProject = async () => {
@@ -166,10 +186,18 @@ export function Code() {
           <button type="button" className="btn" style={{ height: 34, fontSize: 12, flexGrow: 1 }} onClick={() => setPicking(true)}>
             <Icon d={P.plus} size={13} /> New project
           </button>
+          <button type="button" className="btn iconbtn" aria-label={`Publish ${project} to the web`} title={deployed ? `Live at ${deployed.url} — publish again` : "Publish to the web (Vercel)"} disabled={publishing} onClick={() => void publish()} style={{ width: 34, height: 34, borderColor: deployed ? "rgba(255,43,58,0.5)" : undefined }}>
+            <Icon d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3" size={14} color={deployed ? "#FF2B3A" : undefined} />
+          </button>
           <a className="btn iconbtn" href={`/api/projects/${project}/zip`} download aria-label={`Download ${project} as a zip`} title="Download as .zip" style={{ width: 34, height: 34 }}>
             <Icon d={P.down} size={14} />
           </a>
         </div>
+        {deployed && (
+          <a href={deployed.url} target="_blank" rel="noopener noreferrer" className="mono" style={{ margin: "0 8px 10px", fontSize: 11, color: "#FF5A66", overflowWrap: "anywhere" }}>
+            ● {deployed.url.replace("https://", "")}
+          </a>
+        )}
         {picking && (
           <div className="tx-drop" style={{ margin: "0 8px 10px", padding: 10, borderRadius: 14, border: "1px solid rgba(255,43,58,0.4)", background: "rgba(255,43,58,0.05)", display: "flex", flexDirection: "column", gap: 6 }}>
             <label className="sr" htmlFor="newproj">New project name</label>
