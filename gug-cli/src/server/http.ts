@@ -31,6 +31,7 @@ import { TEMPLATES, runFlow, validateFlow } from "./flows.js";
 import { reviewWithLedger, sampleData, summarise, validateEntry, validateStream, type Range } from "./ventures.js";
 import { paperTrade, parseSymbol, quantRead, quote, setAlert, stats, type AssetKind, type Span } from "./markets.js";
 import { STYLES, deleteArt, drawWithMuse, readArt, scriptWithVox } from "./studio.js";
+import { PLATFORMS, draftCaption, growthStats, planWeek, publishToDiscord, validatePost, type Platform } from "./growth.js";
 import { chat, roundtable, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -474,6 +475,55 @@ export function createApp(store: Store) {
     const seconds = Math.max(10, Math.min(300, Number(req.body?.seconds) || 30));
     await sse(res, (signal) => scriptWithVox(store, topic, seconds, str(req.body?.tone, 60), signal));
   });
+
+  // ---------- growth ----------
+  const gr = () => store.data.growth;
+  const isDay = (d: unknown) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d);
+  const postById = (id: string) => {
+    const p = gr().posts.find((x) => x.id === id);
+    if (!p) throw new HttpError(404, "Post not found.");
+    return p;
+  };
+  app.get("/api/growth", (req, res) => {
+    const from = isDay(req.query.from) ? String(req.query.from) : new Date().toISOString().slice(0, 10);
+    const to = isDay(req.query.to) ? String(req.query.to) : from;
+    res.json({ brand: gr().brand, posts: gr().posts.filter((p) => p.date >= from && p.date <= to), stats: growthStats(gr(), from, to), discord: !!vaultGet(store, "discord_webhook") });
+  });
+  app.put("/api/growth/brand", (req, res) => {
+    gr().brand = str(req.body?.brand, 300).trim();
+    store.save();
+    res.json({ ok: true });
+  });
+  app.post("/api/growth/posts", (req, res) => {
+    if (gr().posts.length >= 2000) throw new HttpError(400, "Too many posts — delete some old ones first.");
+    const p = validatePost(req.body);
+    gr().posts.push(p);
+    store.save();
+    res.json(p);
+  });
+  app.put("/api/growth/posts/:id", (req, res) => {
+    const cur = postById(String(req.params.id));
+    const next = validatePost(req.body, cur);
+    gr().posts = gr().posts.map((p) => (p.id === cur.id ? next : p));
+    store.save();
+    res.json(next);
+  });
+  app.delete("/api/growth/posts/:id", (req, res) => {
+    gr().posts = gr().posts.filter((p) => p.id !== String(req.params.id));
+    store.save();
+    res.json({ ok: true });
+  });
+  app.post("/api/growth/plan", async (req, res) => {
+    const from = isDay(req.body?.from) ? String(req.body.from) : new Date().toISOString().slice(0, 10);
+    const platforms = (Array.isArray(req.body?.platforms) ? req.body.platforms : []).filter((p: unknown): p is Platform => PLATFORMS.includes(p as Platform));
+    const count = Math.max(1, Math.min(14, Number(req.body?.count) || 5));
+    await sse(res, (signal) => planWeek(store, from, str(req.body?.goal, 500), platforms.length ? platforms : ["instagram", "tiktok"], count, signal));
+  });
+  app.post("/api/growth/posts/:id/caption", async (req, res) => {
+    const p = postById(String(req.params.id));
+    await sse(res, (signal) => draftCaption(store, p, str(req.body?.ask, 500), signal));
+  });
+  app.post("/api/growth/posts/:id/discord", async (req, res) => res.json(await publishToDiscord(store, postById(String(req.params.id)))));
 
   // ---------- media ----------
   app.get("/api/media", async (_req, res) => res.json(await nowPlaying()));

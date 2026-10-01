@@ -12,10 +12,10 @@ import { Settings } from "./pages/Settings";
 import { Account } from "./pages/Account";
 import { Guide } from "./pages/Guide";
 import { Academy } from "./pages/Academy";
-import { Soon } from "./pages/Soon";
 import { Ventures } from "./pages/Ventures";
 import { Markets } from "./pages/Markets";
 import { Studio } from "./pages/Studio";
+import { Growth } from "./pages/Growth";
 import { Flows } from "./pages/Flows";
 
 interface Ctx {
@@ -114,7 +114,7 @@ export function App() {
     ventures: <Ventures />,
     markets: <Markets />,
     studio: <Studio />,
-    growth: <Soon route="growth" />,
+    growth: <Growth />,
     flows: <Flows />,
     academy: <Academy />,
     guide: <Guide />,

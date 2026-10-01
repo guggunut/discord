@@ -93,6 +93,7 @@ export const BRAND: Record<string, ReactNode> = {
   gumroad: <><circle cx="12" cy="12" r="9" /><path d="M15.5 9.2A4 4 0 1 0 16 13h-3.5" /></>,
   etsy: <><path d="M15 5H8v14h7M8 12h5" /></>,
   other: <><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2" /></>,
+  x: <path d="M4.5 4h4l11 16h-4zM19.5 4l-6.2 7M4.5 20l6.2-7" />,
   youtube: <><rect x="2.5" y="5.5" width="19" height="13" rx="4" /><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor" stroke="none" /></>,
   stripe: <path d="M16 7.8c-1-.6-2.4-1-3.7-1-2 0-3.2.9-3.2 2.2 0 3.1 7.1 1.9 7.1 6 0 1.7-1.6 2.9-4 2.9-1.6 0-3.2-.5-4.3-1.1" strokeWidth="2.2" />,
   notion: <><rect x="4" y="3" width="16" height="18" rx="2.5" /><path d="M8.5 16.5v-9l7 9v-9" /></>,

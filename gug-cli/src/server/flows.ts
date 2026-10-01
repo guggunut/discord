@@ -121,7 +121,7 @@ export async function* runFlow(store: Store, f: Flow, trigger: "manual" | "sched
       const hook = vaultGet(store, "discord_webhook");
       if (hook) {
         try {
-          await fetch(hook, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: `**${f.name}**\n${previous}`.slice(0, 1900) }) });
+          await fetch(hook, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: `**${f.name}**\n${previous}`.slice(0, 1900), allowed_mentions: { parse: [] } }) });
           yield { type: "tool", name: "Discord", detail: "posted to your channel" };
         } catch {
           yield { type: "tool", name: "Discord", detail: "couldn’t post (check the webhook in Apps)" };
