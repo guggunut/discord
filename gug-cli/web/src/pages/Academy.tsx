@@ -1,7 +1,26 @@
 import { useEffect, useState } from "react";
 import { useApp } from "../App";
 import { PLAYBOOKS } from "../playbooks";
-import { Icon, P, Seg } from "../ui";
+import { Icon, P, Seg, type Route } from "../ui";
+
+/** Which GUG-cli screen helps with a playbook step, if any. */
+function toolFor(step: string, playbook: string): [Route, string, string] | null {
+  const t = step.toLowerCase();
+  const rules: [RegExp, Route, string][] = [
+    [/\brouter\b|cap spend/, "settings", "Settings"],
+    [/\bmemory\b|each agent|brief it|every agent/, "agents", "Agents"],
+    [/paper-trade|index fund|alert|rebalance|research with quant|stocks/, "markets", "Markets"],
+    [/image|thumbnail|muse|logo|design|\bart\b|voice|mockup|variations/, "studio", "Studio"],
+    [/publish|retention|reels|shorts|hooks and titles/, "growth", "Growth"],
+    [/\bflow\b|automate|automation|money brief|every sunday|schedule/, "flows", "Flows"],
+    [/margin|price|break-even|fees|\btax|devex|budget|spending|robux|subscriptions/, "ventures", "Ventures"],
+    [/echo|\bpost|content|creatives|launch|caption|\bhook|audience|list on/, "growth", "Growth"],
+    [/code|game|build the store|website|script|landing|update/, "code", "Code"],
+  ];
+  const hit = rules.find(([re]) => re.test(t));
+  if (hit) return [hit[1], hit[2], hit[1] === "settings" ? "Settings" : hit[1] === "agents" ? "Agents" : hit[2]];
+  return playbook === "roblox" ? ["code", "Code", "Code"] : null;
+}
 
 const CATS: [string, string][] = [["all", "All"], ["commerce", "Commerce"], ["investing", "Investing"], ["creator", "Creator"], ["automation", "Automation"]];
 
@@ -97,14 +116,22 @@ export function Academy() {
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 18 }}>
               {g.steps.map((s, i) => {
                 const on = done.includes(i);
+                const tool = toolFor(s, g.id);
                 return (
-                  <button key={s} type="button" className="listbtn" aria-pressed={on} onClick={() => toggle(i)} style={{ alignItems: "flex-start", padding: 10, minHeight: 0 }}>
-                    <span style={{ flexShrink: 0, width: 20, height: 20, marginTop: 1, borderRadius: 6, border: `1.5px solid ${on ? "#FF2B3A" : "rgba(255,255,255,0.25)"}`, background: on ? "#FF2B3A" : "transparent", display: "grid", placeItems: "center", transition: "all .3s" }}>
-                      {on && <Icon d={P.check} size={12} sw={3} color="#fff" />}
-                    </span>
-                    <span className="mono" style={{ fontSize: 11, color: "#FF2B3A", marginTop: 3 }}>{String(i + 1).padStart(2, "0")}</span>
-                    <span style={{ fontSize: 13, lineHeight: 1.5, color: on ? "#71717A" : "#F4F4F5", textDecoration: on ? "line-through" : "none", transition: "color .3s" }}>{s}</span>
-                  </button>
+                  <div key={s} className="row" style={{ alignItems: "flex-start", gap: 4 }}>
+                    <button type="button" className="listbtn" aria-pressed={on} onClick={() => toggle(i)} style={{ alignItems: "flex-start", padding: 10, minHeight: 0, flexGrow: 1 }}>
+                      <span style={{ flexShrink: 0, width: 20, height: 20, marginTop: 1, borderRadius: 6, border: `1.5px solid ${on ? "#FF2B3A" : "rgba(255,255,255,0.25)"}`, background: on ? "#FF2B3A" : "transparent", display: "grid", placeItems: "center", transition: "all .3s" }}>
+                        {on && <Icon d={P.check} size={12} sw={3} color="#fff" />}
+                      </span>
+                      <span className="mono" style={{ fontSize: 11, color: "#FF2B3A", marginTop: 3 }}>{String(i + 1).padStart(2, "0")}</span>
+                      <span style={{ fontSize: 13, lineHeight: 1.5, color: on ? "#71717A" : "#F4F4F5", textDecoration: on ? "line-through" : "none", transition: "color .3s" }}>{s}</span>
+                    </button>
+                    {tool && (
+                      <a href={`#/${tool[0]}`} className="chip" title={`Do this in ${tool[1]}`} style={{ marginTop: 8, height: 26, fontSize: 11, textDecoration: "none", flexShrink: 0, whiteSpace: "nowrap" }}>
+                        <Icon d={P[tool[2]]} size={12} /> {tool[1]}
+                      </a>
+                    )}
+                  </div>
                 );
               })}
             </div>
