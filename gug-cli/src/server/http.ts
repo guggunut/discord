@@ -44,6 +44,7 @@ import { parsePlaceId, recordSnapshot, robloxStats, universeFor } from "./roblox
 import { connectShopify, disconnectShopify, syncShopify } from "./shopify.js";
 import { deployProject, vercelUser } from "./vercel.js";
 import { avatarVersions, readAvatar, removeAvatar, saveAvatar } from "./avatars.js";
+import { MCP_PRESETS, blenderSnapshot, removeServer, testServer, validateServer, writeClaudeConfig } from "./mcp.js";
 import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -241,7 +242,11 @@ export function createApp(store: Store) {
     const prompt = str(req.body?.prompt, 8000);
     const engine = req.body?.engine === "code" ? "code" : "claude";
     await sse(res, (signal) => {
-      if (engine === "code") return runClaudeCode({ prompt, cwd: dir, apiKey: claudeKeys(store)[0], permission: store.data.prefs.codePermission, system: AGENTS.find((a) => a.id === "forge")!.system, signal });
+      if (engine === "code") {
+        const mcp = store.data.mcp.some((m) => m.enabled) ? writeClaudeConfig(store) : undefined;
+        const using = mcp ? `\n\nYou are connected to these apps through MCP: ${store.data.mcp.filter((m) => m.enabled).map((m) => m.name).join(", ")}. Use their tools when the request is about them (e.g. build in Blender, edit the place in Roblox Studio).` : "";
+        return runClaudeCode({ prompt, cwd: dir, apiKey: claudeKeys(store)[0], permission: store.data.prefs.codePermission, system: AGENTS.find((a) => a.id === "forge")!.system + using, signal, mcp });
+      }
       const files = listFiles(dir)
         .filter((f) => f.size < 40_000)
         .slice(0, 20)
@@ -739,6 +744,44 @@ export function createApp(store: Store) {
     store.data.tokens = store.data.tokens.filter((t) => t.id !== String(req.params.id));
     store.save();
     res.json({ ok: true });
+  });
+
+  // ---------- MCP connections (for Claude Code) ----------
+  const mcpById = (id: string) => {
+    const m = store.data.mcp.find((x) => x.id === id);
+    if (!m) throw new HttpError(404, "Connection not found.");
+    return m;
+  };
+  app.get("/api/mcp", (_req, res) => res.json({ servers: store.data.mcp, presets: MCP_PRESETS }));
+  app.post("/api/mcp", (req, res) => {
+    if (store.data.mcp.length >= 12) throw new HttpError(400, "That's plenty of connections — remove one first.");
+    const m = validateServer(store, req.body);
+    store.data.mcp.push(m);
+    store.save();
+    res.json(m);
+  });
+  app.put("/api/mcp/:id", (req, res) => {
+    const cur = mcpById(String(req.params.id));
+    const next = validateServer(store, req.body, cur);
+    store.data.mcp = store.data.mcp.map((x) => (x.id === cur.id ? next : x));
+    store.save();
+    res.json(next);
+  });
+  app.delete("/api/mcp/:id", (req, res) => {
+    removeServer(store, String(req.params.id));
+    res.json({ ok: true });
+  });
+  app.post("/api/mcp/:id/test", async (req, res) => {
+    const m = mcpById(String(req.params.id));
+    const tools = await testServer(store, m);
+    m.tools = tools;
+    m.testedAt = new Date().toISOString();
+    store.save();
+    res.json({ tools });
+  });
+  app.get("/api/live/blender", async (_req, res) => {
+    const snap = await blenderSnapshot();
+    res.json({ image: `data:image/png;base64,${snap.png.toString("base64")}`, scene: snap.scene, at: new Date().toISOString() });
   });
 
   // ---------- media ----------
