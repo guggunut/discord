@@ -91,7 +91,7 @@ export function createApp(store: Store) {
 
   app.use("/api", csrfGuard);
 
-  app.get("/api/health", (req, res) => res.json({ ok: true, name: "gug-cli", version: "0.1.0", unlocked: isUnlocked(req) }));
+  app.get("/api/health", (req, res) => res.json({ ok: true, name: "gug-cli", version: "0.2.0", unlocked: isUnlocked(req) }));
   app.post("/api/unlock", (req, res) => {
     unlock(req, res, str(req.body?.token, 200));
     res.json({ ok: true });

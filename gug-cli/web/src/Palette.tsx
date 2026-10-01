@@ -116,6 +116,7 @@ export function Palette({ go }: { go: (r: Route) => void }) {
     out.push({ id: "vibe", label: "Vibe-code something", hint: "Code", icon: <Icon d={P.Code} size={18} />, run: () => go("code"), keywords: "code build app website" });
     const muted = getSfx().muted;
     out.push({ id: "sound", label: muted ? "Turn sound effects on" : "Mute sound effects", hint: "Sound", icon: <Icon d={muted ? P.sound : P.mute} size={18} />, run: () => setSfx({ muted: !muted }), keywords: "sound audio mute volume" });
+    out.push({ id: "whatsnew", label: "What’s new in GUG-cli", hint: "Help", icon: <Icon d={P.help} size={18} />, run: () => window.dispatchEvent(new Event("gug-whatsnew")), keywords: "new changes update release notes" });
     out.push({ id: "lock", label: "Lock GUG-cli in this browser", hint: "Security", icon: <Icon d={P.lock} size={18} />, run: () => void api("/api/lock", { body: {} }).then(() => location.reload()), keywords: "lock sign out logout" });
     for (const [id, role] of text ? [] : AGENTS) out.push({ id: `chat-${id}`, label: `Chat with ${NAME(id)}`, hint: role, icon: <Sigil id={id} size={26} glow={false} />, run: () => (localStorage.setItem("gug-agent", id), go("agents"), window.dispatchEvent(new Event("gug-prefill"))), keywords: `${id} ${role} agent ai` });
     if (!text) return out;

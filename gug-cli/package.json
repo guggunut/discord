@@ -1,6 +1,6 @@
 {
   "name": "gug-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "GUG-cli — an agentic OS: run many AI agents (Claude, Claude Code, local models) from one place.",
   "type": "module",
   "license": "MIT",
