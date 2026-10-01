@@ -5,7 +5,7 @@ import { Core } from "../Core";
 import { MediaCard } from "../Media";
 import { Md } from "../Md";
 import { play } from "../sfx";
-import { Icon, P, Seg, Sigil } from "../ui";
+import { Brand, Icon, P, Seg, Sigil } from "../ui";
 
 interface Line {
   id: number;
@@ -250,7 +250,7 @@ export function Command() {
 
 function GettingStarted() {
   const { state } = useApp();
-  const [tab, setTab] = useState<"setup" | "today">("setup");
+  const [tab, setTab] = useState<"setup" | "today">(() => (state.engines.claudeKeys > 0 ? "today" : "setup"));
   const [todos, setTodos] = useState<{ t: string; done: boolean }[]>(() => JSON.parse(localStorage.getItem("gug-todos") ?? "[]"));
   const [newTodo, setNewTodo] = useState("");
   useEffect(() => localStorage.setItem("gug-todos", JSON.stringify(todos)), [todos]);
@@ -282,6 +282,8 @@ function GettingStarted() {
         </div>
       ) : (
         <div className="tx-skew" style={{ marginTop: 12 }}>
+          <Briefing />
+          <div className="eyebrow" style={{ fontSize: 10, margin: "14px 0 8px" }}>Your tasks</div>
           <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
             <label className="sr" htmlFor="todo">
               New task
@@ -305,6 +307,67 @@ function GettingStarted() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+interface Today {
+  inbox: { unread: number; latest: { id: string; title: string; at: string; read: boolean }[] };
+  posts: { id: string; time: string; platform: string; title: string; status: string }[];
+  money: { currency: string; today: number; week: number; weekChange: number | null } | null;
+  movers: { label: string; price: number; currency: string; changePct: number }[];
+  nextFlow: { name: string; at: string } | null;
+}
+
+/** A small live briefing: inbox, today's posts, money, market movers and the next automation. */
+function Briefing() {
+  const [t, setT] = useState<Today | null>(null);
+  useEffect(() => {
+    const load = () => api<Today>("/api/today").then(setT).catch(() => {});
+    void load();
+    const id = window.setInterval(load, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  if (!t) return <div className="muted" style={{ fontSize: 12 }}>Gathering your day…</div>;
+  const money = (n: number, cur: string) => {
+    try {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(n);
+    } catch {
+      return `${Math.round(n)} ${cur}`;
+    }
+  };
+  const row = (href: string, icon: React.ReactNode, label: React.ReactNode, right?: React.ReactNode, k?: string) => (
+    <a key={k} href={href} className="listbtn" style={{ minHeight: 38, padding: "4px 4px", textDecoration: "none", color: "#F4F4F5", gap: 10 }}>
+      <span style={{ width: 26, display: "grid", placeItems: "center", flexShrink: 0 }}>{icon}</span>
+      <span style={{ flexGrow: 1, minWidth: 0, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      {right && <span style={{ flexShrink: 0, whiteSpace: "nowrap" }}>{right}</span>}
+    </a>
+  );
+  const empty = !t.inbox.unread && !t.posts.length && !t.money && !t.movers.length && !t.nextFlow;
+  return (
+    <div>
+      <div className="eyebrow" style={{ fontSize: 10, marginBottom: 6 }}>
+        {new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
+      </div>
+      {empty && <div className="muted" style={{ fontSize: 12, padding: "4px 2px" }}>Quiet so far. Add a flow, a stream or a watchlist and they’ll show up here.</div>}
+      {t.inbox.unread > 0 &&
+        row("#/flows", <Icon d={P.Flows} size={16} color="#FF2B3A" />, <><b>{t.inbox.unread}</b> new in your inbox <span className="muted">· {t.inbox.latest[0]?.title}</span></>, <span className="mono" style={{ fontSize: 9, color: "#FF2B3A" }}>NEW</span>, "inbox")}
+      {t.posts.map((p) =>
+        row("#/growth", <Brand name={p.platform} size={22} variant={p.status === "posted" ? "red" : ""} />, <>{p.title}</>, <span className="mono muted" style={{ fontSize: 10 }}>{p.time} · {p.status.toUpperCase()}</span>, p.id),
+      )}
+      {t.money &&
+        row(
+          "#/ventures",
+          <Icon d={P.Ventures} size={16} />,
+          <>Profit today <b>{money(t.money.today, t.money.currency)}</b> <span className="muted">· week {money(t.money.week, t.money.currency)}</span></>,
+          t.money.weekChange !== null ? <span className="mono" style={{ fontSize: 10, color: t.money.weekChange >= 0 ? "#A1A1AA" : "#FF5A66" }}>{t.money.weekChange >= 0 ? "▲" : "▼"} {Math.abs(t.money.weekChange)}%</span> : undefined,
+          "money",
+        )}
+      {t.movers.map((m) =>
+        row("#/markets", <Icon d={P.Markets} size={16} color={m.changePct >= 0 ? "#F4F4F5" : "#FF2B3A"} />, <><b>{m.label}</b> <span className="muted">{m.changePct >= 0 ? "up" : "down"} today</span></>, <span className="mono" style={{ fontSize: 10, color: m.changePct >= 0 ? "#F4F4F5" : "#FF5A66" }}>{m.changePct >= 0 ? "▲" : "▼"} {Math.abs(m.changePct).toFixed(2)}%</span>, `m-${m.label}`),
+      )}
+      {t.nextFlow &&
+        row("#/flows", <Icon d={P.refresh} size={15} />, <>Next: <b>{t.nextFlow.name}</b></>, <span className="mono muted" style={{ fontSize: 10 }}>{new Date(t.nextFlow.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>, "flow")}
     </div>
   );
 }
