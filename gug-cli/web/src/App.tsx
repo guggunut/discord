@@ -13,6 +13,7 @@ import { Account } from "./pages/Account";
 import { Guide } from "./pages/Guide";
 import { Academy } from "./pages/Academy";
 import { Soon } from "./pages/Soon";
+import { Ventures } from "./pages/Ventures";
 import { Flows } from "./pages/Flows";
 
 interface Ctx {
@@ -108,7 +109,7 @@ export function App() {
     agents: <Agents />,
     code: <Code />,
     apps: <Apps />,
-    ventures: <Soon route="ventures" />,
+    ventures: <Ventures />,
     markets: <Soon route="markets" />,
     studio: <Soon route="studio" />,
     growth: <Soon route="growth" />,

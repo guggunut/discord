@@ -28,6 +28,7 @@ import {
 } from "./local.js";
 import { control, nowPlaying, type MediaAction } from "./media.js";
 import { TEMPLATES, runFlow, validateFlow } from "./flows.js";
+import { reviewWithLedger, sampleData, summarise, validateEntry, validateStream, type Range } from "./ventures.js";
 import { chat, roundtable, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -288,6 +289,71 @@ export function createApp(store: Store) {
     store.data.inbox = store.data.inbox.filter((i) => i.id !== String(req.params.id));
     store.save();
     res.json({ ok: true });
+  });
+
+  // ---------- ventures ----------
+  const RANGES: Range[] = ["7d", "30d", "90d", "12m"];
+  const asRange = (r: unknown): Range => (RANGES.includes(r as Range) ? (r as Range) : "30d");
+  const v = () => store.data.ventures;
+  app.get("/api/ventures", (req, res) => res.json(summarise(v(), asRange(req.query.range))));
+  app.put("/api/ventures/currency", (req, res) => {
+    const c = req.body?.currency;
+    if (!["GBP", "USD", "EUR"].includes(c)) throw new HttpError(400, "Pick GBP, USD or EUR.");
+    v().currency = c;
+    store.save();
+    res.json({ ok: true });
+  });
+  app.post("/api/ventures/streams", (req, res) => {
+    if (v().streams.length >= 30) throw new HttpError(400, "That's a lot of streams — remove one first.");
+    const s = validateStream(req.body);
+    v().streams.push(s);
+    store.save();
+    res.json(s);
+  });
+  app.put("/api/ventures/streams/:id", (req, res) => {
+    const cur = v().streams.find((s) => s.id === String(req.params.id));
+    if (!cur) throw new HttpError(404, "Stream not found.");
+    const next = validateStream(req.body, cur);
+    v().streams = v().streams.map((s) => (s.id === cur.id ? next : s));
+    store.save();
+    res.json(next);
+  });
+  app.delete("/api/ventures/streams/:id", (req, res) => {
+    const id = String(req.params.id);
+    v().streams = v().streams.filter((s) => s.id !== id);
+    v().entries = v().entries.filter((e) => e.streamId !== id);
+    store.save();
+    res.json({ ok: true });
+  });
+  app.post("/api/ventures/entries", (req, res) => {
+    if (v().entries.length >= 20_000) throw new HttpError(400, "Entry limit reached — clear sample data or old entries.");
+    const e = validateEntry(v(), req.body);
+    v().entries.push(e);
+    store.save();
+    res.json(e);
+  });
+  app.delete("/api/ventures/entries/:id", (req, res) => {
+    v().entries = v().entries.filter((e) => e.id !== String(req.params.id));
+    store.save();
+    res.json({ ok: true });
+  });
+  app.post("/api/ventures/sample", (_req, res) => {
+    if (v().streams.some((s) => s.sample)) throw new HttpError(400, "Sample data is already loaded.");
+    const d = sampleData();
+    v().streams.push(...d.streams);
+    v().entries.push(...d.entries);
+    store.save();
+    res.json({ ok: true });
+  });
+  app.delete("/api/ventures/sample", (_req, res) => {
+    const ids = new Set(v().streams.filter((s) => s.sample).map((s) => s.id));
+    v().streams = v().streams.filter((s) => !ids.has(s.id));
+    v().entries = v().entries.filter((e) => !ids.has(e.streamId));
+    store.save();
+    res.json({ ok: true });
+  });
+  app.post("/api/ventures/review", async (req, res) => {
+    await sse(res, (signal) => reviewWithLedger(store, v(), asRange(req.body?.range), str(req.body?.question, 1000), signal));
   });
 
   // ---------- media ----------
