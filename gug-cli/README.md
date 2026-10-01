@@ -91,7 +91,17 @@ gug code [--plan] "…"                  Claude Code on the current folder
 gug roundtable [--agents atlas,ledger,echo] [--mode debate] "…"
 gug agents                             List the agents
 gug doctor                             Check your setup
+
+gug today                              Today's briefing (inbox, posts, profit, movers, next flow)
+gug money [--range 7d|30d|90d|12m]     Revenue, profit and margin by stream
+gug log sale|cost|refund 34.99 --stream "Shop" [--note "…"] [--orders 2]
+gug price AAPL [--span 1d|1w|1m|6m|1y] A live price with range stats
+gug watch | gug watch add BTC | gug watch rm BTC
+gug flows | gug flows run "Morning plan"
+gug backup [--out file.json] [--chats] A backup without any keys
 ```
+
+The data commands work whether or not the app is open; when it is, changes go through it so everything stays in sync.
 
 ## Privacy and security
 

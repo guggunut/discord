@@ -4,9 +4,12 @@ import { accessUrl, getAccessToken, getVaultKey } from "./local.js";
 import { Store } from "./store.js";
 import { startScheduler } from "./flows.js";
 import { startAlertWatcher } from "./markets.js";
+import { setMemoryProvider } from "./agents.js";
+import { memoryText } from "./memory.js";
 
 export function startServer(opts: { port?: number; host?: string; quiet?: boolean } = {}) {
   const store = new Store(paths.db());
+  setMemoryProvider(() => memoryText(store));
   getVaultKey();
   getAccessToken();
   const app = createApp(store);

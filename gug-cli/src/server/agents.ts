@@ -28,4 +28,11 @@ export const AGENTS: AgentPreset[] = [
 ];
 
 export const agentById = (id: string) => AGENTS.find((a) => a.id === id);
-export const systemFor = (a: AgentPreset) => `${HOUSE}\n\n${a.system}`;
+/** What the user has told GUG-cli about themselves; set once by whoever owns the store. */
+let memory: () => string = () => "";
+export const setMemoryProvider = (fn: () => string) => void (memory = fn);
+
+export const systemFor = (a: AgentPreset) => {
+  const m = memory();
+  return `${HOUSE}\n\n${a.system}${m ? `\n\n${m}` : ""}`;
+};

@@ -96,7 +96,10 @@ export function Agents() {
         const last = { ...out[out.length - 1] };
         if (ev.type === "text") last.content += ev.text;
         if (ev.type === "start") (last.model = ev.model ?? last.model), (last.engine = ev.engine);
-        if (ev.type === "tool") last.tools = [...(last.tools ?? []), `${ev.name} ${ev.detail}`];
+        if (ev.type === "tool") {
+          last.tools = [...(last.tools ?? []), `${ev.name} ${ev.detail}`];
+          if (ev.name === "Remembered") window.dispatchEvent(new Event("gug-memory"));
+        }
         if (ev.type === "fallback") last.tools = [...(last.tools ?? []), `router: ${ev.from} → ${ev.to ?? "next"} ${ev.reason ? `(${ev.reason})` : ""}`];
         if (ev.type === "error") (last.content += (last.content ? "\n\n" : "") + ev.message), (last.error = true);
         out[out.length - 1] = last;
@@ -330,7 +333,71 @@ export function Agents() {
             Open Command center
           </a>
         </div>
+        <MemoryCard />
       </section>
+    </div>
+  );
+}
+
+interface Fact { id: string; text: string; at: string; by: string }
+
+/** What every agent knows about you. You write it; agents add facts only when asked to remember. */
+function MemoryCard() {
+  const { toast } = useApp();
+  const [about, setAbout] = useState("");
+  const [facts, setFacts] = useState<Fact[]>([]);
+  const [draft, setDraft] = useState("");
+  const [saved, setSaved] = useState(true);
+  const load = () =>
+    api<{ about: string; facts: Fact[] }>("/api/memory")
+      .then((m) => (setAbout(m.about), setFacts(m.facts)))
+      .catch(() => {});
+  useEffect(() => {
+    void load();
+    // Agents can add facts mid-chat; pick them up when a reply finishes.
+    window.addEventListener("gug-memory", load);
+    return () => window.removeEventListener("gug-memory", load);
+  }, []);
+  const saveAbout = async () => {
+    if (saved) return;
+    await api("/api/memory/about", { method: "PUT", body: { about } });
+    setSaved(true);
+    toast("Every agent now knows this about you.");
+  };
+  const add = async () => {
+    if (!draft.trim()) return;
+    try {
+      await api("/api/memory/facts", { body: { text: draft } });
+      setDraft("");
+      void load();
+    } catch (e) {
+      toast((e as Error).message, "err");
+    }
+  };
+  return (
+    <div className="card rise d6" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="row">
+        <Icon d={P.shield} size={16} color="#FF2B3A" />
+        <b style={{ fontSize: 14, flexGrow: 1 }}>Shared memory</b>
+        <span className="mono muted" style={{ fontSize: 9 }}>ALL 12 AGENTS</span>
+      </div>
+      <textarea aria-label="About you" className="field" rows={3} value={about} onChange={(e) => (setAbout(e.target.value), setSaved(false))} onBlur={() => void saveAbout()} placeholder="About you — what you do, your goals, how you like answers. e.g. “I’m 16, in the UK, run a desk-lamp store and a Roblox obby.”" style={{ fontSize: 13 }} />
+      {facts.map((f) => (
+        <div key={f.id} className="row" style={{ gap: 8, fontSize: 12.5, lineHeight: 1.45 }}>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: f.by === "you" ? "#F4F4F5" : "#FF2B3A", flexShrink: 0 }} title={f.by === "you" ? "Added by you" : `Added by ${f.by}`} />
+          <span style={{ flexGrow: 1 }}>{f.text}</span>
+          <button type="button" className="chip" aria-label={`Forget: ${f.text}`} style={{ height: 22, padding: "0 6px" }} onClick={async () => (await api(`/api/memory/facts/${f.id}`, { method: "DELETE" }), void load())}>
+            <Icon d={P.x} size={10} />
+          </button>
+        </div>
+      ))}
+      <div className="row" style={{ gap: 6 }}>
+        <input aria-label="Add something to remember" className="field" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void add()} placeholder="Add a fact…" style={{ height: 38, fontSize: 13, flexGrow: 1 }} />
+        <button type="button" className="btn iconbtn" aria-label="Remember" style={{ width: 38, height: 38 }} onClick={() => void add()}>
+          <Icon d={P.plus} size={14} />
+        </button>
+      </div>
+      <p className="muted" style={{ margin: 0, fontSize: 11 }}>Tell any agent “remember that…” and it lands here. Stored only on this computer.</p>
     </div>
   );
 }

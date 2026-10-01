@@ -121,7 +121,7 @@ test("agents can use tools on your data, and tool errors don't crash the chat", 
   const store = new Store(path.join(process.env.GUG_DATA!, "tools-db.json"));
   store.data.ventures.streams.push(validateStream({ name: "Shop", kind: "shopify" }));
   const tools = toolsFor(store, "ledger");
-  assert.deepEqual(tools.map((t) => t.def.name), ["money_summary", "log_money", "leave_note"]);
+  assert.deepEqual(tools.map((t) => t.def.name), ["money_summary", "log_money", "leave_note", "remember"]);
   assert.ok(tools.every((t) => t.def.eager_input_streaming), "client tools stream their input");
 
   const events: any[] = [];
@@ -134,7 +134,7 @@ test("agents can use tools on your data, and tool errors don't crash the chat", 
   assert.match(text, /Logged sale of 25 to Shop/);
   assert.match(text, /"revenue":25/);
   assert.equal(events.at(-1)?.type, "done");
-  assert.deepEqual(toolRequests.at(-1), ["money_summary", "log_money", "leave_note"]);
+  assert.deepEqual(toolRequests.at(-1), ["money_summary", "log_money", "leave_note", "remember"]);
 
   // A tool that fails reports the error back to the model instead of throwing.
   store.data.ventures.streams = [];
@@ -153,4 +153,21 @@ test("an agent's data access setting limits its tools", async () => {
   assert.deepEqual(toolsFor(store, "echo").map((t) => t.def.name), ["list_posts"]);
   store.data.prefs.agents.echo = { autonomy: "off" };
   assert.equal(toolsFor(store, "echo").length, 0);
+});
+
+test("shared memory reaches every agent's instructions", async () => {
+  const { Store } = await import("../src/server/store.ts");
+  const { addFact, memoryText } = await import("../src/server/memory.ts");
+  const { setMemoryProvider, systemFor, agentById } = await import("../src/server/agents.ts");
+  const store = new Store(path.join(process.env.GUG_DATA!, "memory-db.json"));
+  assert.equal(memoryText(store), "", "nothing to add when memory is empty");
+  store.data.memory.about = "Kacper, sells desk lamps, revising for exams.";
+  addFact(store, "Prefers   UK spelling", "you");
+  addFact(store, "prefers uk spelling", "ledger");
+  assert.equal(store.data.memory.facts.length, 1, "duplicates are ignored");
+  setMemoryProvider(() => memoryText(store));
+  const sys = systemFor(agentById("sage")!);
+  assert.match(sys, /About them: Kacper, sells desk lamps/);
+  assert.match(sys, /- Prefers UK spelling/);
+  setMemoryProvider(() => "");
 });

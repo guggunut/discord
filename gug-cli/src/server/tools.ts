@@ -5,6 +5,7 @@
 import { randomUUID } from "node:crypto";
 import type Anthropic from "@anthropic-ai/sdk";
 import { validateFlow } from "./flows.js";
+import { addFact } from "./memory.js";
 import { PLATFORMS, validatePost } from "./growth.js";
 import { HttpError, vaultList } from "./local.js";
 import { parseSymbol, quote, stats, type Span } from "./markets.js";
@@ -169,6 +170,15 @@ export function toolsFor(store: Store, agentId: string): AgentTool[] {
         return { text: "Saved to the inbox.", summary: title };
       },
     },
+    remember: {
+      writes: true,
+      label: "Remembered",
+      def: tool("remember", "Save a short fact about the user to GUG-cli's shared memory so every agent knows it next time (e.g. 'Sells desk lamps on Shopify', 'Prefers UK spelling'). Only when the user asks you to remember something, or clearly states a lasting preference.", { fact: { type: "string", description: "One short sentence." } }, ["fact"]),
+      run: async (i) => {
+        const f = addFact(store, s(i.fact, 300), agentId);
+        return { text: `Remembered: ${f.text}`, summary: f.text };
+      },
+    },
     security_status: {
       label: "Checked your setup",
       def: tool("security_status", "See how GUG-cli is secured on this computer: which connections are stored (names only, never values) and the safety settings.", {}),
@@ -179,18 +189,18 @@ export function toolsFor(store: Store, agentId: string): AgentTool[] {
     },
   };
   const by: Record<string, string[]> = {
-    atlas: ["money_summary", "watchlist", "market_quote", "list_posts", "list_flows", "inbox", "leave_note"],
-    ledger: ["money_summary", "log_money", "leave_note"],
-    quant: ["market_quote", "watchlist", "add_to_watchlist", "leave_note"],
-    echo: ["list_posts", "add_post", "leave_note"],
-    muse: ["list_posts", "leave_note"],
-    relay: ["list_flows", "create_flow", "inbox", "leave_note"],
-    tempo: ["list_posts", "list_flows", "inbox", "leave_note"],
-    scout: ["market_quote", "leave_note"],
-    sage: ["leave_note"],
-    vox: ["leave_note"],
-    sentinel: ["security_status", "leave_note"],
-    forge: ["leave_note"],
+    atlas: ["money_summary", "watchlist", "market_quote", "list_posts", "list_flows", "inbox", "leave_note", "remember"],
+    ledger: ["money_summary", "log_money", "leave_note", "remember"],
+    quant: ["market_quote", "watchlist", "add_to_watchlist", "leave_note", "remember"],
+    echo: ["list_posts", "add_post", "leave_note", "remember"],
+    muse: ["list_posts", "leave_note", "remember"],
+    relay: ["list_flows", "create_flow", "inbox", "leave_note", "remember"],
+    tempo: ["list_posts", "list_flows", "inbox", "leave_note", "remember"],
+    scout: ["market_quote", "leave_note", "remember"],
+    sage: ["leave_note", "remember"],
+    vox: ["leave_note", "remember"],
+    sentinel: ["security_status", "leave_note", "remember"],
+    forge: ["leave_note", "remember"],
   };
   const access = d.prefs.agents[agentId]?.autonomy ?? "ask";
   if (access === "off") return [];

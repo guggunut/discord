@@ -1,7 +1,8 @@
 // gug — the GUG-cli command line.
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
-import { AGENTS, agentById, systemFor } from "./server/agents.js";
+import { AGENTS, agentById, setMemoryProvider, systemFor } from "./server/agents.js";
+import { memoryText } from "./server/memory.js";
 import { config } from "./server/config.js";
 import { runClaude, type Mode } from "./server/engines/claude.js";
 import { detectClaudeCode, runClaudeCode } from "./server/engines/claudeCode.js";
@@ -164,6 +165,14 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   const [cmd, ...args] = argv;
   const { flags, rest, text } = parse(args);
   const ac = new AbortController();
+  // Agents in the terminal know what you've told them in the app.
+  setMemoryProvider(() => {
+    try {
+      return memoryText(new Store(paths.db()));
+    } catch {
+      return "";
+    }
+  });
   process.once("SIGINT", () => ac.abort());
 
   switch (cmd) {

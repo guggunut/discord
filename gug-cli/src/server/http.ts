@@ -35,6 +35,7 @@ import { PLATFORMS, draftCaption, growthStats, planWeek, publishToDiscord, valid
 import { makeBackup, restoreBackup } from "./backup.js";
 import { toolsFor } from "./tools.js";
 import { briefing } from "./today.js";
+import { addFact } from "./memory.js";
 import { chat, roundtable, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -546,6 +547,20 @@ export function createApp(store: Store) {
   app.get("/api/storage", (_req, res) => {
     const d = store.data;
     res.json({ dataDir: config.dataDir, counts: { flows: d.flows.length, inbox: d.inbox.length, streams: d.ventures.streams.length, entries: d.ventures.entries.length, watch: d.markets.watch.length, posts: d.growth.posts.length, art: d.studio.art.length, chats: Object.values(d.chats).reduce((a, m) => a + m.length, 0) } });
+  });
+
+  // ---------- memory ----------
+  app.get("/api/memory", (_req, res) => res.json(store.data.memory));
+  app.put("/api/memory/about", (req, res) => {
+    store.data.memory.about = str(req.body?.about, 2000);
+    store.save();
+    res.json({ ok: true });
+  });
+  app.post("/api/memory/facts", (req, res) => res.json(addFact(store, str(req.body?.text, 300), "you")));
+  app.delete("/api/memory/facts/:id", (req, res) => {
+    store.data.memory.facts = store.data.memory.facts.filter((f) => f.id !== String(req.params.id));
+    store.save();
+    res.json({ ok: true });
   });
 
   // ---------- media ----------
