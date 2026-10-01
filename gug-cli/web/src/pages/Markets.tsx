@@ -55,6 +55,12 @@ export function Markets() {
     return () => window.clearInterval(t);
   }, [span]);
   useEffect(() => () => abortRef.current(), []);
+  // A ticker handed over from the command palette.
+  useEffect(() => {
+    const t = localStorage.getItem("gug-markets-add");
+    localStorage.removeItem("gug-markets-add");
+    if (t) void add(t);
+  }, []);
 
   useEffect(() => {
     if (!sel) return setCur(null);

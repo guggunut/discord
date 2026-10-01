@@ -218,6 +218,11 @@ export function Topbar({ title, section, icon, chips = [], right, onHelp }: { ti
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         {right}
+        <button type="button" className="btn tb-search hide-sm" aria-label="Open command palette" title="Search and commands" onClick={() => window.dispatchEvent(new Event("gug-palette"))}>
+          <Icon d={P.search} size={15} />
+          <span style={{ fontSize: 12, color: "#A1A1AA" }}>Search or ask</span>
+          <kbd className="mono">Ctrl K</kbd>
+        </button>
         <button type="button" className="btn iconbtn" data-sfx="toggle" aria-pressed={!sfx.muted} aria-label={sfx.muted ? "Turn sound on" : "Mute sounds"} title={sfx.muted ? "Sound off" : "Sound on"} onClick={() => setSfx({ muted: !sfx.muted })}>
           {sfx.muted ? <Icon d={P.mute} size={17} color={RED} /> : <Icon d={P.sound} size={17} />}
         </button>

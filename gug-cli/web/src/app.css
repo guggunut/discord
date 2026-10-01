@@ -75,3 +75,14 @@ iframe.preview { width: 100%; height: 100%; border: 0; background: #fff; border-
 .growth-add{margin-top:auto;height:28px;border-radius:9px;border:1px dashed rgba(255,255,255,.12);background:transparent;color:#71717A;display:grid;place-items:center;opacity:.5;transition:opacity .2s,border-color .2s,color .2s}
 .growth-day:hover .growth-add,.growth-add:focus-visible{opacity:1;border-color:rgba(255,43,58,.5);color:#FF2B3A}
 @media (max-width:1100px){.growth-week{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* Command palette */
+.pal-back{position:fixed;inset:0;z-index:120;display:flex;justify-content:center;align-items:flex-start;padding:12vh 16px 16px;background:rgba(3,3,3,.62);backdrop-filter:blur(6px);animation:fade .25s ease both}
+.pal{width:min(640px,100%);padding:12px;border-color:rgba(255,43,58,.4);box-shadow:0 0 0 1px rgba(255,43,58,.18),0 40px 120px -20px rgba(255,43,58,.45),0 30px 80px -20px #000}
+.pal-item{display:flex;align-items:center;gap:12px;width:100%;min-height:46px;padding:6px 10px;border:0;border-radius:12px;background:transparent;text-align:left;font-size:14px;color:#D4D4D8;position:relative}
+.pal-item.on{background:rgba(255,255,255,.06);color:#fff}
+.pal-item.on::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:2px;border-radius:2px;background:#FF2B3A;box-shadow:0 0 10px #FF2B3A}
+.pal-ic{width:30px;height:30px;display:grid;place-items:center;flex-shrink:0;color:#A1A1AA}
+.pal-item.on .pal-ic{color:#FF2B3A}
+kbd{display:inline-block;min-width:18px;padding:1px 5px;border-radius:5px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);font-family:inherit;font-size:10px;color:#A1A1AA;text-align:center}
+.tb-search{height:44px;gap:10px;padding:0 10px 0 14px}

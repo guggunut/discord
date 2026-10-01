@@ -47,6 +47,19 @@ export function Agents() {
   const feedRef = useRef<HTMLDivElement>(null);
 
   const loadAgents = () => api<AgentInfo[]>("/api/agents").then(setAgents).catch(() => {});
+  // The command palette can hand us an agent and a message while this screen is already open.
+  useEffect(() => {
+    const take = () => {
+      const a = localStorage.getItem("gug-agent");
+      const pf = localStorage.getItem("gug-prefill");
+      localStorage.removeItem("gug-prefill");
+      if (a) setCur(a);
+      if (pf) setDraft(pf);
+      setTab("chat");
+    };
+    window.addEventListener("gug-prefill", take);
+    return () => window.removeEventListener("gug-prefill", take);
+  }, []);
   useEffect(() => {
     void loadAgents();
     return () => abortRef.current();

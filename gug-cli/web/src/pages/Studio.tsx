@@ -11,7 +11,7 @@ const src = (id: string) => `/api/studio/art/${id}`;
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "artwork";
 
 export function Studio() {
-  const [tab, setTab] = useState<"image" | "voice">(() => (localStorage.getItem("gug-studio-tab") as "voice") || "image");
+  const [tab, setTab] = useState<"image" | "voice">(() => (localStorage.getItem("gug-studio-prompt") ? "image" : (localStorage.getItem("gug-studio-tab") as "voice") || "image"));
   useEffect(() => {
     try {
       localStorage.setItem("gug-studio-tab", tab);
@@ -34,7 +34,11 @@ function ImageLab() {
   const [art, setArt] = useState<Art[]>([]);
   const [styles, setStyles] = useState<string[]>([]);
   const [style, setStyle] = useState("neon");
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(() => {
+    const p = localStorage.getItem("gug-studio-prompt") ?? "";
+    localStorage.removeItem("gug-studio-prompt");
+    return p;
+  });
   const [busy, setBusy] = useState("");
   const [open, setOpen] = useState<Art | null>(null);
   const abortRef = useRef<() => void>(() => {});

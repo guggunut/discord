@@ -13,6 +13,7 @@ import { Account } from "./pages/Account";
 import { Guide } from "./pages/Guide";
 import { Academy } from "./pages/Academy";
 import { Ventures } from "./pages/Ventures";
+import { Palette } from "./Palette";
 import { Markets } from "./pages/Markets";
 import { Studio } from "./pages/Studio";
 import { Growth } from "./pages/Growth";
@@ -38,10 +39,10 @@ export const META: Record<Route, { title: string; section: string; icon: string;
   agents: { title: "Agent room", section: "Workspace", icon: "Agents", tips: ["Each AI has its own chat, history and settings.", "Set an engine per AI — Forge uses Claude Code for repo work when it’s installed.", "Clear a chat any time from the Settings tab."] },
   code: { title: "Code", section: "Build", icon: "Code", tips: ["Describe what you want in the vibe box — Forge writes the files.", "Claude API writes files directly; Claude Code works inside the folder and can run tests.", "The preview runs in a sandbox and refreshes after each change."] },
   apps: { title: "Apps", section: "Build", icon: "Apps", tips: ["Connect GitHub with a fine-grained token to list and clone repos.", "Claude Code is detected automatically if it’s installed.", "Everything you connect is stored encrypted on this computer."] },
-  ventures: { title: "Ventures", section: "Money", icon: "Ventures", tips: ["Coming next — Ledger can already work through numbers with you in the Agent room."] },
-  markets: { title: "Markets", section: "Money", icon: "Markets", tips: ["Coming next — ask Quant in the Agent room meanwhile. Not financial advice."] },
-  studio: { title: "Studio", section: "Create", icon: "Studio", tips: ["Coming next — Muse can already write prompts and briefs."] },
-  growth: { title: "Growth", section: "Create", icon: "Growth", tips: ["Coming next — Echo can already plan posts."] },
+  ventures: { title: "Ventures", section: "Money", icon: "Ventures", tips: ["Add a stream for each store, game or product, then log sales, costs and refunds.", "Robux are entered as R$ and converted at the rate you set on the stream.", "Load sample data to explore — it’s labelled and clears in one click.", "Ledger’s review only sends totals for the selected range."] },
+  markets: { title: "Markets", section: "Money", icon: "Markets", tips: ["Type a ticker (AAPL, VUSA.L, ^GSPC) or a coin (BTC, ETH) to add it.", "Practice trades use a $10,000 paper account — no real money moves.", "Price alerts are checked every 5 minutes and land in your Flows inbox.", "Quant explains charts; it never tells you what to buy. Not financial advice."] },
+  studio: { title: "Studio", section: "Create", icon: "Studio", tips: ["Muse draws vector art you can export at any size.", "Pieces are cleaned of scripts and links before they’re saved.", "To Code drops the artwork into your playground’s assets folder.", "Vox uses your computer’s own voices — nothing is uploaded."] },
+  growth: { title: "Growth", section: "Create", icon: "Growth", tips: ["Plan my week asks Echo for drafts — nothing posts by itself.", "Move a post through Idea → Draft → Approve → Posted.", "Discord posts can go out in one click once Discord is connected in Apps.", "Log views and likes on posted items to see what works."] },
   flows: { title: "Flows", section: "Automate", icon: "Flows", tips: ["A flow runs agents on a schedule and drops the result in your inbox or Discord.", "Each step sees the step before — use {{previous}} to place it.", "Scheduled flows run while gug serve is running."] },
   academy: { title: "Academy", section: "Learn", icon: "Academy", tips: ["Pick a playbook, tick steps as you go — progress is saved in this browser.", "Run with agents sends the playbook to the right AIs."] },
   guide: { title: "Setup guide", section: "Learn", icon: "Guide", tips: ["Five steps: engines, access, test, create an AI, first job.", "Keys are tested before they’re saved."] },
@@ -137,6 +138,7 @@ export function App() {
             <Curtain route={route} />
             <Topbar title={m.title} section={m.section} icon={m.icon} chips={chips} right={<MiniPlayer />} onHelp={() => setHelp((h) => !h)} />
             {page[route]}
+            <Palette go={ctx.go} />
             <HelpPanel open={help} onClose={() => setHelp((h) => !h)} tips={m.tips} />
           </main>
         </div>
