@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, ApiError, type State } from "./api";
 import { play } from "./sfx";
-import { Curtain, HelpPanel, Icon, P, Rail, Topbar, type Route } from "./ui";
+import { Curtain, HelpPanel, Icon, P, Rail, Topbar, type Route, MobileNav } from "./ui";
 import { MiniPlayer, MediaProvider } from "./Media";
 import { Locked } from "./pages/Locked";
 import { Command } from "./pages/Command";
@@ -134,6 +134,7 @@ export function App() {
       <MediaProvider>
         <div className="os">
           <Rail route={route} initial={initial} />
+          <MobileNav route={route} />
           <main className="main" key={route}>
             <Curtain route={route} />
             <Topbar title={m.title} section={m.section} icon={m.icon} chips={chips} right={<MiniPlayer />} onHelp={() => setHelp((h) => !h)} />

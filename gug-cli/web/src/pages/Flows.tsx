@@ -103,7 +103,7 @@ export function Flows() {
   const unread = inbox.filter((i) => !i.read).length;
 
   return (
-    <div className="g3" style={{ gridTemplateColumns: "280px minmax(0,1fr) 340px" }}>
+    <div className="g3 cols" style={{ ["--cols" as string]: "280px minmax(0,1fr) 340px" }}>
       <section className="card rise d2" style={{ padding: "16px 12px", display: "flex", flexDirection: "column", gap: 4, alignSelf: "start" }}>
         <div className="row" style={{ padding: "0 8px 8px" }}>
           <h2 className="disp" style={{ margin: 0, fontSize: 14, fontWeight: 400, flexGrow: 1 }}>Your flows</h2>

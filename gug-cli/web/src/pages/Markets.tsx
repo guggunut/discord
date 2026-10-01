@@ -151,7 +151,7 @@ export function Markets() {
         </div>
       )}
 
-      <div className="g3" style={{ gridTemplateColumns: "290px minmax(0,1fr) 330px" }}>
+      <div className="g3 cols" style={{ ["--cols" as string]: "290px minmax(0,1fr) 330px" }}>
         {/* watchlist */}
         <section className="card rise d2" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6, alignSelf: "start" }}>
           <form
@@ -236,7 +236,7 @@ export function Markets() {
                   <Seg label="Chart range" value={span} width={290} options={[["1d", "1D"], ["1w", "1W"], ["1m", "1M"], ["6m", "6M"], ["1y", "1Y"]]} onChange={setSpan} />
                 </div>
                 <Chart points={cur.history} up={cur.stats.changePct >= 0} currency={cur.currency} span={span} />
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0,1fr))", gap: 10, marginTop: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(108px, 1fr))", gap: 10, marginTop: 14 }}>
                   {([
                     ["Range change", pctTxt(cur.stats.changePct)],
                     ["High", fmt(cur.stats.high, cur.currency)],

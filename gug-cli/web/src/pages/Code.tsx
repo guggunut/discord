@@ -147,7 +147,7 @@ export function Code() {
   const SUGGEST = ["Make a pomodoro timer with a red progress ring", "Build a landing page for my desk lamp store", "Turn this into a to-do app that saves to localStorage", "Add a dark/light toggle"];
 
   return (
-    <div className="g3" style={{ gridTemplateColumns: "250px minmax(0,1fr) 370px" }}>
+    <div className="g3 cols" style={{ ["--cols" as string]: "250px minmax(0,1fr) 370px" }}>
       <section className="card rise d2" style={{ padding: "14px 10px", display: "flex", flexDirection: "column", gap: 4, alignSelf: "start" }}>
         <label className="label" style={{ padding: "0 8px 8px" }}>
           Project

@@ -24,7 +24,7 @@ export function Account() {
   };
 
   return (
-    <div className="g2l" style={{ gridTemplateColumns: "300px minmax(0,1fr)" }}>
+    <div className="g2l cols" style={{ ["--cols" as string]: "300px minmax(0,1fr)" }}>
       <section className="card rise d2" style={{ padding: 24, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 10, alignSelf: "start" }}>
         <div className="stage" style={{ width: 132, height: 132, borderRadius: "50%", overflow: "visible" }}>
           <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid transparent", borderTopColor: "#FF2B3A", borderRightColor: "#FF2B3A", animation: "spinz 6s linear infinite", filter: "drop-shadow(0 0 6px #FF2B3A)" }} />

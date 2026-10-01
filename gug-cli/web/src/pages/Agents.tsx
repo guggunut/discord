@@ -119,7 +119,7 @@ export function Agents() {
   const engineLabel = (e: Engine) => ({ auto: "Auto", claude: "Claude", code: "Claude Code", local: "Local" })[e];
 
   return (
-    <div className="g3" style={{ gridTemplateColumns: "300px minmax(0,1fr) 300px" }}>
+    <div className="g3 cols" style={{ ["--cols" as string]: "300px minmax(0,1fr) 300px" }}>
       <section className="card rise d2" style={{ padding: "16px 12px", alignSelf: "start" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 6px 10px" }}>
           <h2 className="disp" style={{ margin: 0, fontSize: 14, fontWeight: 400 }}>

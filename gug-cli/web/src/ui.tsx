@@ -193,6 +193,25 @@ export function Rail({ route, initial }: { route: Route; initial: string }) {
   );
 }
 
+/** Phone-sized screens hide the rail; this bottom bar takes over, with “More” opening the palette. */
+export function MobileNav({ route }: { route: Route }) {
+  const tabs: [Route, string, string][] = [["command", "Home", "Command"], ["agents", "Agents", "Agents"], ["code", "Code", "Code"], ["ventures", "Money", "Ventures"]];
+  return (
+    <nav className="mnav" aria-label="Main">
+      {tabs.map(([r, l, i]) => (
+        <a key={r} href={`#/${r}`} className={route === r ? "on" : undefined} aria-current={route === r ? "page" : undefined}>
+          <Icon d={P[i]} size={20} sw={1.6} />
+          <span>{l}</span>
+        </a>
+      ))}
+      <button type="button" onClick={() => window.dispatchEvent(new Event("gug-palette"))}>
+        <Icon d={P.search} size={20} sw={1.6} />
+        <span>More</span>
+      </button>
+    </nav>
+  );
+}
+
 export function Topbar({ title, section, icon, chips = [], right, onHelp }: { title: string; section: string; icon: string; chips?: [string, boolean][]; right?: ReactNode; onHelp: () => void }) {
   const sfx = useSfxPrefs();
   return (
