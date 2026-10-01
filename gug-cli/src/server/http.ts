@@ -40,6 +40,7 @@ import { coolingStatus, resetCooling } from "./engines/claude.js";
 import { TEMPLATES as PROJECT_TEMPLATES, templateById as projectTemplate, zip } from "./templates.js";
 import { focusStats } from "./focus.js";
 import { ask, bearer, createToken, listTokens } from "./integrations.js";
+import { parsePlaceId, recordSnapshot, robloxStats, universeFor } from "./roblox.js";
 import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -359,6 +360,34 @@ export function createApp(store: Store) {
     const id = String(req.params.id);
     v().streams = v().streams.filter((s) => s.id !== id);
     v().entries = v().entries.filter((e) => e.streamId !== id);
+    store.save();
+    res.json({ ok: true });
+  });
+  const robloxStream = (id: string) => {
+    const st = v().streams.find((s) => s.id === id);
+    if (!st) throw new HttpError(404, "Stream not found.");
+    if (st.kind !== "roblox") throw new HttpError(400, "Only Roblox streams can link a game.");
+    return st;
+  };
+  app.post("/api/ventures/streams/:id/roblox", async (req, res) => {
+    const st = robloxStream(String(req.params.id));
+    const universeId = await universeFor(parsePlaceId(req.body?.place));
+    const stats = await robloxStats(universeId);
+    st.universeId = universeId;
+    recordSnapshot(store, st.id, stats);
+    res.json({ stats, history: store.data.robloxHistory[st.id] ?? [] });
+  });
+  app.get("/api/ventures/streams/:id/roblox", async (req, res) => {
+    const st = robloxStream(String(req.params.id));
+    if (!st.universeId) return void res.json({ stats: null, history: [] });
+    const stats = await robloxStats(st.universeId);
+    recordSnapshot(store, st.id, stats);
+    res.json({ stats, history: store.data.robloxHistory[st.id] ?? [] });
+  });
+  app.delete("/api/ventures/streams/:id/roblox", (req, res) => {
+    const st = robloxStream(String(req.params.id));
+    st.universeId = undefined;
+    delete store.data.robloxHistory[st.id];
     store.save();
     res.json({ ok: true });
   });

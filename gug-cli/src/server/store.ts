@@ -11,6 +11,7 @@ import { emptyGrowth, type Growth } from "./growth.js";
 import { emptyMemory, type Memory } from "./memory.js";
 import type { Usage } from "./engines/claude.js";
 import type { ApiToken } from "./integrations.js";
+import type { RobloxSnapshot } from "./roblox.js";
 
 export interface Prefs {
   engine: EngineId;
@@ -44,11 +45,12 @@ export interface DB {
   usage: Usage[];
   focus: { at: string; minutes: number; label: string }[];
   tokens: ApiToken[];
+  robloxHistory: Record<string, RobloxSnapshot[]>;
 }
 
 export const defaultPrefs = (): Prefs => ({ engine: "auto", codePermission: "acceptEdits", localUrl: "http://127.0.0.1:11434", localModel: "", agents: {} });
 
-const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {}, flows: [], inbox: [], ventures: emptyVentures(), markets: emptyMarkets(), studio: emptyStudio(), growth: emptyGrowth(), memory: emptyMemory(), usage: [], focus: [], tokens: [] });
+const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {}, flows: [], inbox: [], ventures: emptyVentures(), markets: emptyMarkets(), studio: emptyStudio(), growth: emptyGrowth(), memory: emptyMemory(), usage: [], focus: [], tokens: [], robloxHistory: {} });
 
 export class Store {
   data: DB;

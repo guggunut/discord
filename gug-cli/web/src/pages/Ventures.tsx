@@ -9,7 +9,7 @@ import { BRAND, Brand, Icon, P, Seg, Sigil, Switch } from "../ui";
 type Range = "7d" | "30d" | "90d" | "12m";
 type Kind = "shopify" | "roblox" | "gumroad" | "etsy" | "youtube" | "other";
 interface Totals { revenue: number; costs: number; refunds: number; profit: number; orders: number }
-interface StreamRow { id: string; name: string; kind: Kind; robux: boolean; rate: number; sample?: boolean; totals: Totals; margin: number; change: number | null; rawSales: number }
+interface StreamRow { id: string; name: string; kind: Kind; robux: boolean; rate: number; sample?: boolean; universeId?: number; totals: Totals; margin: number; change: number | null; rawSales: number }
 interface Entry { id: string; streamId: string; date: string; type: "sale" | "cost" | "refund"; amount: number; orders: number; note: string; sample?: boolean }
 interface Kpi { value: number; change: number | null }
 interface Summary {
@@ -176,6 +176,7 @@ export function Ventures() {
                     </div>
                     <Change v={x.change} />
                   </div>
+                  {x.kind === "roblox" && <RobloxLive stream={x} onChange={() => void load()} />}
                 </section>
               ))}
             </div>
@@ -511,5 +512,73 @@ function ImportCsv({ streams, currency, onClose, onDone }: { streams: StreamRow[
         </>
       )}
     </section>
+  );
+}
+
+interface RStats { name: string; playing: number; visits: number; favorites: number; upVotes: number; downVotes: number }
+const compact = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n));
+
+/** Live players, visits and likes for a linked Roblox experience. */
+function RobloxLive({ stream: x, onChange }: { stream: StreamRow; onChange: () => void }) {
+  const { toast } = useApp();
+  const [data, setData] = useState<{ stats: RStats | null; history: { day: string; visits: number }[] } | null>(null);
+  const [linking, setLinking] = useState(false);
+  const [place, setPlace] = useState("");
+  useEffect(() => {
+    if (!x.universeId) return setData(null);
+    const load = () => api<{ stats: RStats | null; history: { day: string; visits: number }[] }>(`/api/ventures/streams/${x.id}/roblox`).then(setData).catch(() => {});
+    void load();
+    const t = window.setInterval(load, 60_000);
+    return () => window.clearInterval(t);
+  }, [x.id, x.universeId]);
+  const link = async () => {
+    try {
+      const r = await api<{ stats: RStats }>(`/api/ventures/streams/${x.id}/roblox`, { body: { place } });
+      play("success");
+      toast(`Linked ${r.stats.name}.`);
+      setLinking(false);
+      onChange();
+    } catch (e) {
+      toast((e as Error).message, "err");
+    }
+  };
+  if (!x.universeId)
+    return linking ? (
+      <div className="row tx-drop" style={{ gap: 6, marginTop: 12 }}>
+        <input aria-label="Roblox game link or place ID" className="field" autoFocus value={place} onChange={(e) => setPlace(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void link()} placeholder="roblox.com/games/… or place ID" style={{ height: 34, fontSize: 12, flexGrow: 1, minWidth: 0 }} />
+        <button type="button" className="btn btn-red" style={{ height: 34, fontSize: 12 }} onClick={() => void link()}>Link</button>
+      </div>
+    ) : (
+      <button type="button" className="chip" style={{ marginTop: 12 }} onClick={() => setLinking(true)}>
+        <Icon d={P.plus} size={11} /> Link your game for live stats
+      </button>
+    );
+  const s = data?.stats;
+  const h = data?.history ?? [];
+  const likes = s && s.upVotes + s.downVotes ? Math.round((s.upVotes / (s.upVotes + s.downVotes)) * 100) : null;
+  const lo = Math.min(...h.map((p) => p.visits));
+  const hi = Math.max(...h.map((p) => p.visits));
+  return (
+    <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+      {!s ? (
+        <div className="muted mono" style={{ fontSize: 10 }}>Loading live stats…</div>
+      ) : (
+        <div className="row" style={{ gap: 10 }}>
+          <span className="row mono" style={{ gap: 6, fontSize: 11 }}>
+            <i style={{ width: 7, height: 7, borderRadius: "50%", background: s.playing ? "#FF2B3A" : "#52525B", boxShadow: s.playing ? "0 0 8px #FF2B3A" : undefined }} className={s.playing ? "blink" : undefined} />
+            {compact(s.playing)} playing
+          </span>
+          <span className="mono muted" style={{ fontSize: 11, flexGrow: 1 }}>{compact(s.visits)} visits{likes !== null ? ` · ${likes}% 👍` : ""}</span>
+          {h.length > 1 && (
+            <svg width="60" height="20" viewBox="0 0 60 20" aria-label="Visits over time">
+              <path d={h.map((p, i) => `${i ? "L" : "M"}${((i / (h.length - 1)) * 60).toFixed(1)} ${(19 - ((p.visits - lo) / (hi - lo || 1)) * 17).toFixed(1)}`).join(" ")} fill="none" stroke="#FF2B3A" strokeWidth="1.4" />
+            </svg>
+          )}
+          <button type="button" className="chip" aria-label="Unlink game" title="Unlink game" style={{ height: 22, padding: "0 6px" }} onClick={async () => (await api(`/api/ventures/streams/${x.id}/roblox`, { method: "DELETE" }), onChange())}>
+            <Icon d={P.x} size={10} />
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

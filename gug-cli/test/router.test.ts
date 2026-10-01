@@ -121,7 +121,7 @@ test("agents can use tools on your data, and tool errors don't crash the chat", 
   const store = new Store(path.join(process.env.GUG_DATA!, "tools-db.json"));
   store.data.ventures.streams.push(validateStream({ name: "Shop", kind: "shopify" }));
   const tools = toolsFor(store, "ledger");
-  assert.deepEqual(tools.map((t) => t.def.name), ["money_summary", "log_money", "leave_note", "remember"]);
+  assert.deepEqual(tools.map((t) => t.def.name), ["money_summary", "game_stats", "log_money", "leave_note", "remember"]);
   assert.ok(tools.every((t) => t.def.eager_input_streaming), "client tools stream their input");
 
   const events: any[] = [];
@@ -134,7 +134,7 @@ test("agents can use tools on your data, and tool errors don't crash the chat", 
   assert.match(text, /Logged sale of 25 to Shop/);
   assert.match(text, /"revenue":25/);
   assert.equal(events.at(-1)?.type, "done");
-  assert.deepEqual(toolRequests.at(-1), ["money_summary", "log_money", "leave_note", "remember"]);
+  assert.deepEqual(toolRequests.at(-1), ["money_summary", "game_stats", "log_money", "leave_note", "remember"]);
 
   // A tool that fails reports the error back to the model instead of throwing.
   store.data.ventures.streams = [];
@@ -150,7 +150,7 @@ test("an agent's data access setting limits its tools", async () => {
   const store = new Store(path.join(process.env.GUG_DATA!, "access-db.json"));
   assert.ok(toolsFor(store, "echo").some((t) => t.writes), "can make changes by default");
   store.data.prefs.agents.echo = { autonomy: "read" };
-  assert.deepEqual(toolsFor(store, "echo").map((t) => t.def.name), ["list_posts"]);
+  assert.deepEqual(toolsFor(store, "echo").map((t) => t.def.name), ["game_stats", "list_posts"]);
   store.data.prefs.agents.echo = { autonomy: "off" };
   assert.equal(toolsFor(store, "echo").length, 0);
 });

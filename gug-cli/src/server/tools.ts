@@ -7,6 +7,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { validateFlow } from "./flows.js";
 import { addFact } from "./memory.js";
 import { focusStats } from "./focus.js";
+import { robloxStats } from "./roblox.js";
 import { PLATFORMS, validatePost } from "./growth.js";
 import { HttpError, vaultList } from "./local.js";
 import { parseSymbol, quote, stats, type Span } from "./markets.js";
@@ -180,6 +181,16 @@ export function toolsFor(store: Store, agentId: string): AgentTool[] {
         return { text: `Remembered: ${f.text}`, summary: f.text };
       },
     },
+    game_stats: {
+      label: "Checked your Roblox game",
+      def: tool("game_stats", "Get live stats for the user's linked Roblox games: players online now, total visits, favourites, likes/dislikes, and daily visit history (to see growth).", {}),
+      run: async () => {
+        const linked = d.ventures.streams.filter((x) => x.universeId);
+        if (!linked.length) return { text: "No Roblox game is linked yet. The user can link one on a Roblox stream in Ventures.", summary: "no game linked" };
+        const out = await Promise.all(linked.map(async (x) => ({ stream: x.name, ...(await robloxStats(x.universeId!).catch((e) => ({ error: String(e?.message ?? e) }))), history: (d.robloxHistory[x.id] ?? []).slice(-14) })));
+        return { text: JSON.stringify(out), summary: linked.map((x) => x.name).join(", ") };
+      },
+    },
     focus_stats: {
       label: "Checked your focus time",
       def: tool("focus_stats", "See how much focused time the user has logged with GUG-cli's focus timer: minutes today, this week, current daily streak and recent sessions.", {}),
@@ -198,10 +209,10 @@ export function toolsFor(store: Store, agentId: string): AgentTool[] {
     },
   };
   const by: Record<string, string[]> = {
-    atlas: ["focus_stats", "money_summary", "watchlist", "market_quote", "list_posts", "list_flows", "inbox", "leave_note", "remember"],
-    ledger: ["money_summary", "log_money", "leave_note", "remember"],
+    atlas: ["focus_stats", "money_summary", "game_stats", "watchlist", "market_quote", "list_posts", "list_flows", "inbox", "leave_note", "remember"],
+    ledger: ["money_summary", "game_stats", "log_money", "leave_note", "remember"],
     quant: ["market_quote", "watchlist", "add_to_watchlist", "leave_note", "remember"],
-    echo: ["list_posts", "add_post", "leave_note", "remember"],
+    echo: ["game_stats", "list_posts", "add_post", "leave_note", "remember"],
     muse: ["list_posts", "leave_note", "remember"],
     relay: ["list_flows", "create_flow", "inbox", "leave_note", "remember"],
     tempo: ["focus_stats", "list_posts", "list_flows", "inbox", "leave_note", "remember"],
