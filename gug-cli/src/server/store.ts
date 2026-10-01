@@ -6,6 +6,7 @@ import type { Sealed } from "./crypto.js";
 import type { Flow, InboxItem } from "./flows.js";
 import { emptyVentures, type Ventures } from "./ventures.js";
 import { emptyMarkets, type Markets } from "./markets.js";
+import { emptyStudio, type Studio } from "./studio.js";
 
 export interface Prefs {
   engine: EngineId;
@@ -33,11 +34,12 @@ export interface DB {
   inbox: InboxItem[];
   ventures: Ventures;
   markets: Markets;
+  studio: Studio;
 }
 
 export const defaultPrefs = (): Prefs => ({ engine: "auto", codePermission: "acceptEdits", localUrl: "http://127.0.0.1:11434", localModel: "", agents: {} });
 
-const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {}, flows: [], inbox: [], ventures: emptyVentures(), markets: emptyMarkets() });
+const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {}, flows: [], inbox: [], ventures: emptyVentures(), markets: emptyMarkets(), studio: emptyStudio() });
 
 export class Store {
   data: DB;

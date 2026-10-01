@@ -30,6 +30,7 @@ import { control, nowPlaying, type MediaAction } from "./media.js";
 import { TEMPLATES, runFlow, validateFlow } from "./flows.js";
 import { reviewWithLedger, sampleData, summarise, validateEntry, validateStream, type Range } from "./ventures.js";
 import { paperTrade, parseSymbol, quantRead, quote, setAlert, stats, type AssetKind, type Span } from "./markets.js";
+import { STYLES, deleteArt, drawWithMuse, readArt, scriptWithVox } from "./studio.js";
 import { chat, roundtable, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -41,7 +42,7 @@ const asEngine = (e: unknown) => (["auto", "claude", "code", "local"].includes(e
 const str = (v: unknown, max = 10_000) => (typeof v === "string" ? v.slice(0, max) : "");
 const MEDIA_ACTIONS: MediaAction[] = ["toggle", "next", "prev", "back10", "fwd10", "seek"];
 
-async function sse(res: Response, source: (signal: AbortSignal) => AsyncGenerator<GugEvent>) {
+async function sse(res: Response, source: (signal: AbortSignal) => AsyncGenerator<GugEvent | { type: string }>) {
   res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-transform", connection: "keep-alive", "x-accel-buffering": "no" });
   const ac = new AbortController();
   res.on("close", () => ac.abort());
@@ -435,6 +436,43 @@ export function createApp(store: Store) {
     const span = asSpan(req.body?.span);
     const q = await quote(known ?? w, span);
     await sse(res, (signal) => quantRead(store, q, span, str(req.body?.question, 1000), signal));
+  });
+
+  // ---------- studio ----------
+  app.get("/api/studio", (_req, res) => res.json({ art: store.data.studio.art, styles: Object.keys(STYLES) }));
+  app.post("/api/studio/draw", async (req, res) => {
+    const prompt = str(req.body?.prompt, 1500).trim();
+    if (!prompt) throw new HttpError(400, "Describe what Muse should draw.");
+    await sse(res, (signal) => drawWithMuse(store, prompt, str(req.body?.style, 20), signal));
+  });
+  app.get("/api/studio/art/:id", (req, res) => {
+    const svg = readArt(String(req.params.id).replace(/\.svg$/, ""));
+    res.set({
+      "content-type": "image/svg+xml; charset=utf-8",
+      "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
+      "cache-control": "private, max-age=31536000, immutable",
+    });
+    res.send(svg);
+  });
+  app.delete("/api/studio/art/:id", (req, res) => {
+    deleteArt(store, String(req.params.id));
+    res.json({ ok: true });
+  });
+  app.post("/api/studio/art/:id/to-project", (req, res) => {
+    const id = String(req.params.id);
+    const art = store.data.studio.art.find((a) => a.id === id);
+    if (!art) throw new HttpError(404, "Artwork not found.");
+    const project = str(req.body?.project, 60) || "playground";
+    const slug = art.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "artwork";
+    const rel = `assets/${slug}.svg`;
+    writeFile(projectDir(project), rel, readArt(id));
+    res.json({ ok: true, project, path: rel });
+  });
+  app.post("/api/studio/script", async (req, res) => {
+    const topic = str(req.body?.topic, 1500).trim();
+    if (!topic) throw new HttpError(400, "What should the voiceover be about?");
+    const seconds = Math.max(10, Math.min(300, Number(req.body?.seconds) || 30));
+    await sse(res, (signal) => scriptWithVox(store, topic, seconds, str(req.body?.tone, 60), signal));
   });
 
   // ---------- media ----------
