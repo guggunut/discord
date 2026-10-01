@@ -1,0 +1,440 @@
+import { useEffect, useRef, useState } from "react";
+import { api, stream, type AgentInfo, type Engine, type GugEvent } from "../api";
+import { useApp } from "../App";
+import { Md } from "../Md";
+import { AvatarEditor } from "../AvatarEditor";
+import { useAvatar } from "../avatars";
+import { play } from "../sfx";
+import { AGENT_META, Icon, P, Seg, Sigil, Switch } from "../ui";
+
+interface Msg {
+  role: "user" | "assistant";
+  content: string;
+  model?: string;
+  engine?: string;
+  tools?: string[];
+  error?: boolean;
+}
+
+const CATS: [string, string][] = [["all", "All"], ["business", "Business"], ["markets", "Markets"], ["creative", "Creative"], ["productivity", "Productivity"], ["system", "System"]];
+const ABOUT: Record<string, string[]> = {
+  atlas: ["Breaks big asks into steps", "Says which agent should own each step", "Ends with the one decision you need to make"],
+  ledger: ["Margins, budgets and pricing maths", "Dropshipping, Roblox and digital product income", "Never moves money"],
+  quant: ["Explains markets and risk clearly", "Prefers paper trading", "Not financial advice"],
+  muse: ["Image and video prompts", "Shot lists and creative briefs", "On-brand: black, white, signal red"],
+  echo: ["Hooks, captions and posting plans", "Ad angles and campaign ideas", "Never makes claims a product can’t back up"],
+  relay: ["Designs automations step by step", "Names the apps and credentials needed", "Flags anything risky"],
+  scout: ["Structured research briefs", "Separates facts from guesses", "Says which sources would confirm each claim"],
+  forge: ["Writes and fixes code", "Uses Claude Code inside your projects when installed", "Small, reviewable changes with test steps"],
+  vox: ["Voiceover scripts with timing", "Music briefs and podcast outlines"],
+  tempo: ["Turns to-do lists into realistic schedules", "Plans focus blocks and buffers"],
+  sage: ["Explains anything step by step", "Checks your understanding", "Defines jargon the first time"],
+  sentinel: ["Reviews setups for security and privacy risks", "Gives prioritised, practical fixes"],
+};
+
+export function Agents() {
+  const { state, refresh, toast } = useApp();
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
+  const [cat, setCat] = useState("all");
+  const [cur, setCur] = useState(() => localStorage.getItem("gug-agent") ?? "forge");
+  const [tab, setTab] = useState<"chat" | "about" | "settings">("chat");
+  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [draft, setDraft] = useState(() => {
+    const pf = localStorage.getItem("gug-prefill") ?? "";
+    localStorage.removeItem("gug-prefill");
+    return pf;
+  });
+  const [busy, setBusy] = useState(false);
+  const abortRef = useRef<() => void>(() => {});
+  const feedRef = useRef<HTMLDivElement>(null);
+
+  const loadAgents = () => api<AgentInfo[]>("/api/agents").then(setAgents).catch(() => {});
+  // The command palette can hand us an agent and a message while this screen is already open.
+  useEffect(() => {
+    const take = () => {
+      const a = localStorage.getItem("gug-agent");
+      const pf = localStorage.getItem("gug-prefill");
+      localStorage.removeItem("gug-prefill");
+      if (a) setCur(a);
+      if (pf) setDraft(pf);
+      setTab("chat");
+    };
+    window.addEventListener("gug-prefill", take);
+    return () => window.removeEventListener("gug-prefill", take);
+  }, []);
+  useEffect(() => {
+    void loadAgents();
+    return () => abortRef.current();
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("gug-agent", cur);
+    abortRef.current();
+    setBusy(false);
+    api<Msg[]>(`/api/agents/${cur}/history`).then(setMsgs).catch(() => setMsgs([]));
+  }, [cur]);
+  useEffect(() => {
+    feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: "smooth" });
+  }, [msgs, tab]);
+
+  const a = agents.find((x) => x.id === cur);
+  const list = agents.filter((x) => cat === "all" || x.category === cat);
+
+  const save = async (patch: Partial<{ engine: Engine; autonomy: string; enabled: boolean }>) => {
+    await api("/api/prefs", { method: "PATCH", body: { agents: { [cur]: patch } } });
+    await loadAgents();
+    void refresh();
+  };
+
+  const send = () => {
+    const text = draft.trim();
+    if (!text || busy) return;
+    play("send");
+    setDraft("");
+    setBusy(true);
+    setMsgs((m) => [...m, { role: "user", content: text }, { role: "assistant", content: "" }]);
+    const onEvent = (ev: GugEvent) =>
+      setMsgs((m) => {
+        const out = [...m];
+        const last = { ...out[out.length - 1] };
+        if (ev.type === "text") last.content += ev.text;
+        if (ev.type === "start") (last.model = ev.model ?? last.model), (last.engine = ev.engine);
+        if (ev.type === "tool") {
+          last.tools = [...(last.tools ?? []), `${ev.name} ${ev.detail}`];
+          if (ev.name === "Remembered") window.dispatchEvent(new Event("gug-memory"));
+        }
+        if (ev.type === "fallback") last.tools = [...(last.tools ?? []), `router: ${ev.from} → ${ev.to ?? "next"} ${ev.reason ? `(${ev.reason})` : ""}`];
+        if (ev.type === "error") (last.content += (last.content ? "\n\n" : "") + ev.message), (last.error = true);
+        out[out.length - 1] = last;
+        return out;
+      });
+    abortRef.current = stream("/api/chat", { agent: cur, text, mode: "deep", engine: "auto", project: "playground" }, onEvent, () => {
+      setBusy(false);
+      play("success");
+      void loadAgents();
+    });
+  };
+
+  const clear = async () => {
+    await api(`/api/agents/${cur}/history`, { method: "DELETE" });
+    setMsgs([]);
+    toast(`Cleared your chat with ${a?.name}.`);
+  };
+
+  const tone = AGENT_META[cur]?.tone ?? "#F4F4F5";
+  const pic = useAvatar(cur);
+  const engineLabel = (e: Engine) => ({ auto: "Auto", claude: "Claude", code: "Claude Code", local: "Local" })[e];
+
+  return (
+    <div className="g3 cols" style={{ ["--cols" as string]: "300px minmax(0,1fr) 300px" }}>
+      <section className="card rise d2" style={{ padding: "16px 12px", alignSelf: "start" }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 6px 10px" }}>
+          <h2 className="disp" style={{ margin: 0, fontSize: 14, fontWeight: 400 }}>
+            Your AIs
+          </h2>
+          <span className="mono" style={{ fontSize: 11, color: "#A1A1AA" }}>
+            {list.length} SHOWN
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "0 4px" }}>
+          {CATS.map(([id, label]) => (
+            <button key={id} type="button" data-sfx="tab" className="chip" aria-pressed={cat === id} onClick={() => setCat(id)} style={{ height: 28, background: cat === id ? "#F4F4F5" : undefined, color: cat === id ? "#050505" : undefined, borderColor: cat === id ? "#F4F4F5" : undefined, transition: "all .3s" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div key={cat} className="tx-skew" style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 12 }}>
+          {list.map((x) => (
+            <button key={x.id} type="button" data-sfx="tab" className="listbtn" onClick={() => (setCur(x.id), setTab("chat"))} style={{ minHeight: 54, background: x.id === cur ? "linear-gradient(90deg, rgba(255,43,58,0.14), rgba(255,43,58,0))" : undefined, borderColor: x.id === cur ? "rgba(255,43,58,0.45)" : "transparent", opacity: x.enabled ? 1 : 0.5 }}>
+              <Sigil id={x.id} size={34} />
+              <span style={{ flexGrow: 1, minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: 14, fontWeight: 600 }}>{x.name}</span>
+                <span style={{ display: "block", fontSize: 11, color: "#A1A1AA", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {x.role} · {engineLabel(x.engine)}
+                </span>
+              </span>
+              {x.messages > 0 && <span className="mono" style={{ fontSize: 10, color: "#71717A" }}>{x.messages}</span>}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="card rise d3" style={{ padding: 24, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {a && (
+          <>
+            <div key={cur} className="tx-zoom" style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+              <div className="stage" style={{ width: 104, height: 104, borderRadius: "50%", overflow: "visible", flexShrink: 0 }}>
+                <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.12)", borderTopColor: tone, animation: "spinz 14s linear infinite" }} />
+                <span style={{ position: "absolute", inset: 12, borderRadius: "50%", border: "1px dashed rgba(255,255,255,0.2)", animation: "spinz 22s linear infinite reverse" }} />
+                {pic ? (
+                  <img src={pic} alt="" width={70} height={70} style={{ position: "relative", width: 70, height: 70, borderRadius: "50%", objectFit: "cover", border: `1px solid ${tone}`, boxShadow: `0 0 46px -8px ${tone}` }} />
+                ) : (
+                  <span style={{ width: 58, height: 58, borderRadius: 18, display: "grid", placeItems: "center", background: "#0A0A0B", border: "1px solid rgba(255,255,255,0.16)", boxShadow: `0 0 46px -8px ${tone}`, transform: "rotate(45deg)" }}>
+                    <Icon d={AGENT_META[cur]?.sig ?? P.Agents} size={26} color={tone} sw={1.5} style={{ transform: "rotate(-45deg)" }} />
+                  </span>
+                )}
+              </div>
+              <div style={{ flexGrow: 1, minWidth: 220 }}>
+                <div className="row" style={{ flexWrap: "wrap" }}>
+                  <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>{a.name}</h2>
+                  <span className="stat">
+                    <i />
+                    {a.role}
+                  </span>
+                  <span className="stat">
+                    <i className="w" />
+                    Engine · {engineLabel(a.engine)}
+                  </span>
+                </div>
+                <p className="muted" style={{ margin: "6px 0 0", fontSize: 14 }}>
+                  {ABOUT[cur]?.[0]}.
+                </p>
+              </div>
+            </div>
+            <div role="tablist" style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginTop: 20, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+              <span aria-hidden="true" style={{ position: "absolute", bottom: -1, height: 2, width: "33.333%", left: `${["chat", "about", "settings"].indexOf(tab) * 33.333}%`, background: "#FF2B3A", boxShadow: "0 0 12px #FF2B3A", transition: "left .45s cubic-bezier(.7,0,.2,1)" }} />
+              {(["chat", "about", "settings"] as const).map((t) => (
+                <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} style={{ height: 46, border: 0, background: "transparent", fontSize: 13, fontWeight: 600, color: tab === t ? "#fff" : "#A1A1AA", transition: "color .3s", textTransform: "capitalize" }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {tab === "chat" && (
+              <div className="tx-rise" style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 18, flexGrow: 1 }}>
+                <div ref={feedRef} className="scroll" style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: 280, maxHeight: 520 }}>
+                  {!msgs.length && (
+                    <div className="tx-rise" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div className="muted" style={{ fontSize: 14 }}>Say hi to {a.name}. Conversations are saved on this computer.</div>
+                      <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
+                        {(STARTERS[a.id] ?? []).map((q) => (
+                          <button key={q} type="button" className="chip" style={{ height: "auto", minHeight: 30, padding: "6px 12px", textAlign: "left", whiteSpace: "normal" }} onClick={() => setDraft(q)}>
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {msgs.map((m, i) =>
+                    m.role === "user" ? (
+                      <div key={i} className="bubble-me">
+                        {m.content}
+                      </div>
+                    ) : (
+                      <div key={i} style={{ display: "flex", gap: 12, maxWidth: "92%" }}>
+                        <Sigil id={cur} size={30} glow={false} />
+                        <div style={{ minWidth: 0 }}>
+                          {m.tools?.map((t, j) => (
+                            <div key={j} className="mono" style={{ fontSize: 11, color: "#FF5A66", marginBottom: 4 }}>
+                              ▸ {t}
+                            </div>
+                          ))}
+                          <div className="bubble-ai" style={{ borderColor: m.error ? "rgba(255,43,58,0.5)" : undefined, color: m.error ? "#FF8A93" : undefined }}>
+                            {m.content ? <Md text={m.content} /> : <span className="dots3"><span /><span /><span /></span>}
+                          </div>
+                          {(m.model || m.engine) && <div className="mono" style={{ fontSize: 10, color: "#71717A", marginTop: 4 }}>{m.engine} {m.model ? `· ${m.model}` : ""}</div>}
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+                {a.engine !== "claude" && a.id === "forge" && (
+                  <div className="row" style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(255,43,58,0.35)", background: "rgba(255,43,58,0.06)", fontSize: 12, color: "#D4D4D8" }}>
+                    <Icon d={P.terminal} size={16} color="#FF2B3A" />
+                    {state.engines.claudeCode.ok ? "Code requests run through Claude Code in your playground project." : "Install Claude Code to let Forge edit real files — until then Forge answers through Claude."}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 10 }}>
+                  <label className="sr" htmlFor="agent-msg">
+                    Message {a.name}
+                  </label>
+                  <input id="agent-msg" className="field" style={{ flexGrow: 1, height: 50 }} placeholder={`Message ${a.name}…`} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), send())} />
+                  {busy ? (
+                    <button type="button" className="btn" aria-label="Stop" style={{ width: 50, height: 50, padding: 0 }} onClick={() => (abortRef.current(), setBusy(false))}>
+                      <Icon d="M7 7h10v10H7z" size={16} />
+                    </button>
+                  ) : (
+                    <button type="button" className="btn btn-red" data-sfx="none" aria-label="Send" style={{ width: 50, height: 50, padding: 0 }} onClick={send}>
+                      <Icon d={P.send} size={18} sw={2.2} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {tab === "about" && (
+              <div className="tx-flip" style={{ paddingTop: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+                {(ABOUT[cur] ?? []).map((t, i) => (
+                  <div key={t} className="card rise" style={{ padding: "13px 16px", borderRadius: 14, fontSize: 14, animationDelay: `${i * 0.07}s` }}>
+                    <span className="mono" style={{ color: "#FF2B3A", marginRight: 10, fontSize: 11 }}>
+                      0{i + 1}
+                    </span>
+                    {t}
+                  </div>
+                ))}
+                {a.tools.length > 0 && (
+                  <div className="card" style={{ padding: "14px 16px", borderRadius: 14 }}>
+                    <div className="eyebrow" style={{ fontSize: 10, marginBottom: 10 }}>What {a.name} can do in GUG-cli</div>
+                    {a.tools.map((t) => (
+                      <div key={t.label} className="row" style={{ gap: 10, padding: "5px 0", fontSize: 13 }} title={t.description}>
+                        <Icon d={t.writes ? P.wand : P.search} size={14} color={t.writes ? "#FF2B3A" : "#A1A1AA"} />
+                        <span style={{ flexGrow: 1 }}>{t.label}</span>
+                        <span className="mono muted" style={{ fontSize: 9 }}>{t.writes ? "CHANGES" : "READS"}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>
+                  {a.messages} messages saved · stored only on this computer
+                </p>
+              </div>
+            )}
+
+            {tab === "settings" && (
+              <div className="tx-blinds" style={{ paddingTop: 18, display: "flex", flexDirection: "column", gap: 18 }}>
+                <div>
+                  <div className="eyebrow" style={{ fontSize: 10, marginBottom: 10 }}>Profile picture</div>
+                  <AvatarEditor id={a.id} name={a.name} />
+                </div>
+                <div>
+                  <div className="eyebrow" style={{ fontSize: 10, marginBottom: 8 }}>
+                    Engine
+                  </div>
+                  <Seg label="Engine" value={a.engine} onChange={(e) => void save({ engine: e })} width={440} options={[["auto", "Auto"], ["claude", "Claude"], ["code", "Claude Code"], ["local", "Local"]]} />
+                  <p className="muted" style={{ margin: "8px 0 0", fontSize: 12 }}>
+                    {a.engine === "code" ? "Claude Code works inside your playground project — edits files and runs safe commands." : a.engine === "local" ? "Uses your local model from Settings → Engines." : a.engine === "auto" ? "Auto: Claude Code for repo work when installed, Claude for everything else." : "Claude in the cloud, with automatic fallback across models."}
+                  </p>
+                </div>
+                <div>
+                  <div className="eyebrow" style={{ fontSize: 10, marginBottom: 8 }}>
+                    Access to your data
+                  </div>
+                  <Seg label="Access to your data" value={a.autonomy} onChange={(v) => void save({ autonomy: v })} width={420} options={[["off", "No access"], ["read", "Read only"], ["ask", "Can make changes"]]} />
+                  <p className="muted" style={{ margin: "8px 0 0", fontSize: 12 }}>
+                    {a.autonomy === "off" ? `${a.name} only sees what you type.` : a.autonomy === "read" ? `${a.name} can look at your GUG-cli data but never change it.` : `${a.name} can look at your data and make small, undoable changes when you ask — like logging a sale or drafting a post. Every action shows in the chat.`}
+                  </p>
+                </div>
+                <div className="row" style={{ fontSize: 14 }}>
+                  <span style={{ flexGrow: 1 }}>Show in the Command center</span>
+                  <Switch on={a.enabled} label={`Enable ${a.name}`} onChange={(v) => void save({ enabled: v })} />
+                </div>
+                <button type="button" className="btn" style={{ alignSelf: "flex-start", borderColor: "rgba(255,43,58,0.45)", color: "#FF5A66" }} onClick={clear}>
+                  Clear chat history
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      <section style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+        <div className="card rise d4" style={{ padding: 18 }}>
+          <h2 className="disp" style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 400 }}>
+            Recent
+          </h2>
+          {agents
+            .filter((x) => x.last)
+            .slice(0, 6)
+            .map((x) => (
+              <button key={x.id} type="button" className="listbtn" onClick={() => (setCur(x.id), setTab("chat"))} style={{ alignItems: "flex-start", padding: "8px 6px" }}>
+                <Sigil id={x.id} size={28} glow={false} />
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>{x.name}</span>
+                  <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: 12, color: "#A1A1AA" }}>{x.last}</span>
+                </span>
+              </button>
+            ))}
+          {!agents.some((x) => x.last) && <div className="muted" style={{ fontSize: 13 }}>No conversations yet.</div>}
+        </div>
+        <div className="card hot rise d5" style={{ padding: 18, fontSize: 13, lineHeight: 1.6 }}>
+          <div className="row" style={{ marginBottom: 8 }}>
+            <Icon d={P.Command} size={16} color="#FF2B3A" />
+            <b>Want them to work together?</b>
+          </div>
+          <span className="muted">Select several agents in the Command center — they’ll answer in turn, build on each other, and Atlas sums it up.</span>
+          <a href="#/command" className="btn" style={{ marginTop: 12, width: "100%" }}>
+            Open Command center
+          </a>
+        </div>
+        <MemoryCard />
+      </section>
+    </div>
+  );
+}
+
+const STARTERS: Record<string, string[]> = {
+  atlas: ["What should I focus on today?", "Look at my money, posts and flows and tell me what needs attention", "Turn my goal for this month into a weekly plan"],
+  ledger: ["How is my money doing this month?", "Log a sale of £34.99 to my store", "What margin do I make on a £34.99 lamp that costs £11.40 + £8 ads?"],
+  quant: ["How has the S&P 500 done this month?", "Explain index funds vs single stocks", "Add NVDA to my watchlist"],
+  muse: ["Give me 5 logo ideas for my brand", "Write image prompts for a moody product shot", "Suggest a colour palette for my store"],
+  echo: ["Draft 3 TikTok posts for this week", "What's on my content calendar?", "Write a hook for a desk-setup reel"],
+  relay: ["Set up a weekly money check-in on Sundays", "What automations do I have?", "Automate a morning plan sent to Discord"],
+  scout: ["Find 3 trending products for a desk-setup store", "Compare Shopify and Etsy fees for me", "What's the price of BTC right now?"],
+  forge: ["Build a landing page for my store", "Add a dark/light toggle to my project", "Explain what my Roblox leaderstats script does"],
+  vox: ["Write a 30-second ad script for my lamp", "Give me 5 podcast episode ideas", "Make this sound more natural: “Buy our lamp today.”"],
+  tempo: ["Plan my day around school and revision", "How much have I focused this week?", "What's coming up on my calendar?"],
+  sage: ["Make me a revision plan for my exams", "Explain compound interest simply", "Quiz me on what I learned today"],
+  sentinel: ["Is my GUG-cli setup secure?", "Give me a 5-minute account security checklist", "How do I spot a phishing email?"],
+};
+
+interface Fact { id: string; text: string; at: string; by: string }
+
+/** What every agent knows about you. You write it; agents add facts only when asked to remember. */
+function MemoryCard() {
+  const { toast } = useApp();
+  const [about, setAbout] = useState("");
+  const [facts, setFacts] = useState<Fact[]>([]);
+  const [draft, setDraft] = useState("");
+  const [saved, setSaved] = useState(true);
+  const load = () =>
+    api<{ about: string; facts: Fact[] }>("/api/memory")
+      .then((m) => (setAbout(m.about), setFacts(m.facts)))
+      .catch(() => {});
+  useEffect(() => {
+    void load();
+    // Agents can add facts mid-chat; pick them up when a reply finishes.
+    window.addEventListener("gug-memory", load);
+    return () => window.removeEventListener("gug-memory", load);
+  }, []);
+  const saveAbout = async () => {
+    if (saved) return;
+    await api("/api/memory/about", { method: "PUT", body: { about } });
+    setSaved(true);
+    toast("Every agent now knows this about you.");
+  };
+  const add = async () => {
+    if (!draft.trim()) return;
+    try {
+      await api("/api/memory/facts", { body: { text: draft } });
+      setDraft("");
+      void load();
+    } catch (e) {
+      toast((e as Error).message, "err");
+    }
+  };
+  return (
+    <div className="card rise d6" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="row">
+        <Icon d={P.shield} size={16} color="#FF2B3A" />
+        <b style={{ fontSize: 14, flexGrow: 1 }}>Shared memory</b>
+        <span className="mono muted" style={{ fontSize: 9 }}>ALL 12 AGENTS</span>
+      </div>
+      <textarea aria-label="About you" className="field" rows={3} value={about} onChange={(e) => (setAbout(e.target.value), setSaved(false))} onBlur={() => void saveAbout()} placeholder="About you — what you do, your goals, how you like answers. e.g. “I’m 16, in the UK, run a desk-lamp store and a Roblox obby.”" style={{ fontSize: 13 }} />
+      {facts.map((f) => (
+        <div key={f.id} className="row" style={{ gap: 8, fontSize: 12.5, lineHeight: 1.45 }}>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: f.by === "you" ? "#F4F4F5" : "#FF2B3A", flexShrink: 0 }} title={f.by === "you" ? "Added by you" : `Added by ${f.by}`} />
+          <span style={{ flexGrow: 1 }}>{f.text}</span>
+          <button type="button" className="chip" aria-label={`Forget: ${f.text}`} style={{ height: 22, padding: "0 6px" }} onClick={async () => (await api(`/api/memory/facts/${f.id}`, { method: "DELETE" }), void load())}>
+            <Icon d={P.x} size={10} />
+          </button>
+        </div>
+      ))}
+      <div className="row" style={{ gap: 6 }}>
+        <input aria-label="Add something to remember" className="field" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void add()} placeholder="Add a fact…" style={{ height: 38, fontSize: 13, flexGrow: 1 }} />
+        <button type="button" className="btn iconbtn" aria-label="Remember" style={{ width: 38, height: 38 }} onClick={() => void add()}>
+          <Icon d={P.plus} size={14} />
+        </button>
+      </div>
+      <p className="muted" style={{ margin: 0, fontSize: 11 }}>Tell any agent “remember that…” and it lands here. Stored only on this computer.</p>
+    </div>
+  );
+}
