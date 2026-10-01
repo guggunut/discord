@@ -30,7 +30,9 @@ Get a key at [platform.claude.com](https://platform.claude.com) → API keys.
 
 ### Windows
 
-Run the same commands in **PowerShell** or **Windows Terminal**. If `npm link` needs admin rights, skip it and use `node bin\gug.mjs serve` from the `gug-cli` folder.
+Easiest: **double-click `Start GUG-cli.cmd`** in the `gug-cli` folder. The first time it installs and builds everything (a minute or two), then opens the app. On macOS, double-click `start.command`.
+
+Or run the same commands in **PowerShell** or **Windows Terminal**. If `npm link` needs admin rights, skip it and use `node bin\gug.mjs serve` from the `gug-cli` folder.
 
 ### Claude Code (recommended for coding)
 

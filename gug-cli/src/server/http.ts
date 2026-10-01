@@ -668,6 +668,10 @@ export function createApp(store: Store) {
 
   // ---------- web app ----------
   const web = [path.join(here, "../../web/dist"), path.join(here, "../web/dist")].find((p) => existsSync(p));
+  if (!web) {
+    console.warn("  ! The web app isn't built yet, so only the API is available. Run: npm run build");
+    app.get("/", (_req, res) => res.type("text/plain").send("GUG-cli's web app isn't built yet.\n\nIn the gug-cli folder run:  npm run build\nthen start it again with:   gug serve"));
+  }
   if (web) {
     app.use((_req, res, next) => {
       res.set("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
