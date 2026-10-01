@@ -44,7 +44,7 @@ import { parsePlaceId, recordSnapshot, robloxStats, universeFor } from "./roblox
 import { connectShopify, disconnectShopify, syncShopify } from "./shopify.js";
 import { deployProject, vercelUser } from "./vercel.js";
 import { avatarVersions, readAvatar, removeAvatar, saveAvatar } from "./avatars.js";
-import { MCP_PRESETS, blenderSnapshot, callTool, listTools, removeServer, testServer, validateServer, writeClaudeConfig } from "./mcp.js";
+import { MCP_PRESETS, blenderSnapshot, callTool, listTools, rememberTools, removeServer, validateServer, writeClaudeConfig } from "./mcp.js";
 import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { changes, takeSnapshot, undo } from "./history.js";
@@ -785,17 +785,15 @@ export function createApp(store: Store) {
   });
   app.post("/api/mcp/:id/test", async (req, res) => {
     const m = mcpById(String(req.params.id));
-    const tools = await testServer(store, m);
-    m.tools = tools;
-    m.testedAt = new Date().toISOString();
+    const info = await listTools(store, m);
+    rememberTools(m, info);
     store.save();
-    res.json({ tools });
+    res.json({ tools: m.tools });
   });
   app.get("/api/mcp/:id/tools", async (req, res) => {
     const m = mcpById(String(req.params.id));
     const tools = await listTools(store, m);
-    m.tools = tools.map((t) => t.name);
-    m.testedAt = new Date().toISOString();
+    rememberTools(m, tools);
     store.save();
     res.json(tools);
   });

@@ -11,6 +11,7 @@ import { robloxStats } from "./roblox.js";
 import { PLATFORMS, validatePost } from "./growth.js";
 import { HttpError, vaultList } from "./local.js";
 import { parseSymbol, quote, stats, type Span } from "./markets.js";
+import { callTool, type McpServer } from "./mcp.js";
 import type { Store } from "./store.js";
 import { summarise, validateEntry, type Range } from "./ventures.js";
 
@@ -224,7 +225,33 @@ export function toolsFor(store: Store, agentId: string): AgentTool[] {
   };
   const access = d.prefs.agents[agentId]?.autonomy ?? "ask";
   if (access === "off") return [];
-  return (by[agentId] ?? []).map((k) => all[k]).filter((t) => access !== "read" || !t.writes);
+  const app = MCP_AGENTS.includes(agentId) ? d.mcp.filter((m) => m.enabled && m.toolInfo?.length).flatMap((m) => mcpTools(store, m)) : [];
+  return [...(by[agentId] ?? []).map((k) => all[k]), ...app].filter((t) => access !== "read" || !t.writes);
+}
+
+/** Agents that can use connected apps (Blender, Roblox Studio…) straight from chat. */
+export const MCP_AGENTS = ["forge", "muse"];
+const READ_ONLY = /^(get|list|read|search|find|describe|inspect|query)_/i;
+const APP_LABEL: Record<string, string> = { blender: "Blender", roblox: "Roblox Studio", filesystem: "Folder" };
+
+/** Turns a connected MCP server's tools into agent tools named <server>__<tool>. */
+export function mcpTools(store: Store, m: McpServer): AgentTool[] {
+  const who = APP_LABEL[m.app] ?? m.name;
+  return (m.toolInfo ?? []).slice(0, 25).map((t) => ({
+    label: `${who} · ${t.name.replace(/_/g, " ")}`,
+    writes: !READ_ONLY.test(t.name),
+    def: {
+      name: `${m.name}__${t.name}`.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64),
+      description: `[${who}, via MCP] ${t.description ?? t.name}`.slice(0, 1000),
+      input_schema: (t.inputSchema && (t.inputSchema as { type?: string }).type === "object" ? t.inputSchema : { type: "object", properties: {} }) as Anthropic.Beta.Messages.BetaTool.InputSchema,
+      eager_input_streaming: true,
+    },
+    run: async (input: Record<string, unknown>) => {
+      const r = await callTool(store, m, t.name, input);
+      const text = r.content.map((c) => (c.type === "image" ? "[an image came back — the user can see it in Code → Live view]" : c.text)).join("\n").slice(0, 12_000);
+      return { text: r.isError ? `The tool reported an error: ${text}` : text || "Done.", summary: r.isError ? "error" : `${who} answered` };
+    },
+  }));
 }
 
 export const TOOL_SYSTEM = `You can use tools to read and update the user's GUG-cli data (money tracker, watchlist, content calendar, automations, inbox). Use them whenever the answer depends on the user's own numbers or plans rather than guessing. Only change things when the user asks. After using tools, answer in plain language.`;

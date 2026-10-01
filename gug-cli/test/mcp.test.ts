@@ -9,7 +9,8 @@ import { after, test } from "node:test";
 const dir = mkdtempSync(path.join(tmpdir(), "gug-mcp-"));
 process.env.GUG_DATA = dir;
 const { Store } = await import("../src/server/store.ts");
-const { blenderSnapshot, callTool, listTools, testServer, validateServer, writeClaudeConfig } = await import("../src/server/mcp.ts");
+const { blenderSnapshot, callTool, listTools, rememberTools, testServer, validateServer, writeClaudeConfig } = await import("../src/server/mcp.ts");
+const { toolsFor } = await import("../src/server/tools.ts");
 
 // A minimal stdio MCP server.
 const fakeMcp = path.join(dir, "fake-mcp.mjs");
@@ -62,6 +63,25 @@ test("tools can be listed with schemas and run by hand", async () => {
   assert.equal(bad.isError, true);
   assert.equal(bad.content[0].type === "text" && bad.content[0].text, "code was 1/0");
   await assert.rejects(callTool(store, s, "nope", {}, 10_000), /Unknown tool/);
+});
+
+test("Forge can use connected apps from chat; read-only agents only get the get_ tools", async () => {
+  const store = new Store(path.join(dir, "db4.json"));
+  const s = validateServer(store, { name: "blender", app: "blender", command: process.execPath, args: [fakeMcp] });
+  rememberTools(s, await listTools(store, s, 10_000));
+  store.data.mcp.push(s);
+  const names = (id: string) => toolsFor(store, id).map((t) => t.def.name);
+  assert.ok(names("forge").includes("blender__get_scene_info"));
+  assert.ok(names("forge").includes("blender__execute_blender_code"));
+  assert.ok(!names("ledger").some((n) => n.startsWith("blender__")), "only app-building agents get app tools");
+  store.data.prefs.agents.forge = { ...(store.data.prefs.agents.forge ?? {}), autonomy: "read" } as never;
+  assert.ok(names("forge").includes("blender__get_scene_info"));
+  assert.ok(!names("forge").includes("blender__execute_blender_code"), "writes are hidden when read-only");
+  const t = toolsFor(store, "forge").find((x) => x.def.name === "blender__get_scene_info")!;
+  assert.equal(t.label, "Blender · get scene info");
+  assert.deepEqual(await t.run({}), { text: "Scene: Lamp\n[an image came back — the user can see it in Code → Live view]\n[resource content]", summary: "Blender answered" });
+  s.enabled = false;
+  assert.ok(!names("forge").some((n) => n.startsWith("blender__")), "switched-off apps disappear");
 });
 
 // A stand-in for the Blender MCP add-on's socket.

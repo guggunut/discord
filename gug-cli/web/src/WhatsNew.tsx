@@ -6,6 +6,7 @@ import { Icon, P, type Route } from "./ui";
 export const VERSION = "0.3.0";
 const ITEMS: [Route, string, string, string][] = [
   ["code", "Code", "Build in Blender & Roblox Studio", "Connect apps through MCP, then watch Live view: Blender's viewport (or any window you share) updates as Forge works, and the filmstrip replays the build as a timelapse."],
+  ["agents", "Agents", "Forge talks to Blender", "Once an app is connected, Forge and Muse can use it from any chat — “what's in my scene?”, “add a rim light”. Try its tools by hand in Connect apps → Tools."],
   ["code", "Code", "See every change, undo any build", "The Changes tab diffs what Forge did, line by line. Didn't like it? Undo build puts every file back."],
   ["agents", "Agents", "Your aesthetic, every AI", "Give each agent its own profile picture — crop it, then go mono, red or duotone to match the rest."],
   ["ventures", "Ventures", "Charts you can spin", "Bar charts are real 3D now: drag to orbit, hover to lift a bar, click to pin it."],

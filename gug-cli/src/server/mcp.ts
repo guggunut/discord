@@ -22,6 +22,8 @@ export interface McpServer {
   envKeys: string[]; // values live in the vault
   enabled: boolean;
   tools?: string[];
+  /** Tool names, descriptions and schemas from the last test — lets agents use them in chat. */
+  toolInfo?: ToolInfo[];
   testedAt?: string;
 }
 
@@ -71,7 +73,8 @@ export function validateServer(store: Store, input: any, existing?: McpServer): 
   if (!command || command.length > 400) throw new HttpError(400, "Enter the command that starts the MCP server.");
   const args = (Array.isArray(input?.args) ? input.args : existing?.args ?? []).map((a: unknown) => String(a)).filter((a: string) => a.length <= 400).slice(0, 20);
   const app: McpApp = ["blender", "roblox", "filesystem", "custom"].includes(input?.app) ? input.app : existing?.app ?? "custom";
-  const s: McpServer = { id: existing?.id ?? randomUUID(), name, app, command, args, envKeys: existing?.envKeys ?? [], enabled: input?.enabled === undefined ? existing?.enabled ?? true : !!input.enabled, tools: existing?.tools, testedAt: existing?.testedAt };
+  const s: McpServer = { id: existing?.id ?? randomUUID(), name, app, command, args, envKeys: existing?.envKeys ?? [], enabled: input?.enabled === undefined ? existing?.enabled ?? true : !!input.enabled, tools: existing?.tools, toolInfo: existing?.toolInfo, testedAt: existing?.testedAt };
+  if (existing && (existing.command !== command || existing.args.join("\0") !== args.join("\0"))) (s.tools = undefined, s.toolInfo = undefined, s.testedAt = undefined);
   // Environment values (API tokens etc.) are sealed in the vault, never stored in plain text.
   if (input?.env && typeof input.env === "object") {
     for (const [k, v] of Object.entries(input.env as Record<string, unknown>)) {
@@ -184,6 +187,13 @@ export function listTools(store: Store, s: McpServer, timeoutMs = 45_000): Promi
     const r = await rpc("tools/list").catch((e: Error) => Promise.reject(new HttpError(502, `Couldn't list tools: ${e.message}`)));
     return (r?.tools ?? []).slice(0, 100).map((t: any) => ({ name: String(t.name), description: t.description ? String(t.description).slice(0, 600) : undefined, inputSchema: t.inputSchema && typeof t.inputSchema === "object" ? t.inputSchema : undefined }));
   });
+}
+
+/** Remembers what a server offers (after a test or a tool listing). */
+export function rememberTools(s: McpServer, tools: ToolInfo[]) {
+  s.tools = tools.map((t) => t.name);
+  s.toolInfo = tools.slice(0, 40).map((t) => ({ name: t.name, description: t.description?.slice(0, 400), inputSchema: t.inputSchema }));
+  s.testedAt = new Date().toISOString();
 }
 
 /** Handshake + list the tool names (used by "Test"). */
