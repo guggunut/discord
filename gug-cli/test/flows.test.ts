@@ -43,3 +43,16 @@ test("manual flows never fire on their own", () => {
   const f = validateFlow(base);
   assert.ok(!isDue(f, new Date(Date.now() + 1e9)));
 });
+
+test("weekly flows fire once on their day, and skip stale weeks", () => {
+  const f = validateFlow({ ...base, trigger: { type: "weekly", day: 0, at: "18:00" } }); // Sundays
+  assert.throws(() => validateFlow({ ...base, trigger: { type: "weekly", day: 9, at: "18:00" } }), /day of the week/);
+  const at = (d: number, h: number) => new Date(2026, 9, d, h); // Oct 2026: the 4th is a Sunday
+  assert.ok(!isDue(f, at(4, 17)));
+  assert.ok(isDue(f, at(4, 18)));
+  assert.ok(isDue(f, at(5, 9)), "still due the next morning if the computer was off");
+  assert.ok(!isDue(f, at(7, 9)), "too stale by Wednesday");
+  f.lastRunAt = at(4, 18).toISOString();
+  assert.ok(!isDue(f, at(4, 20)));
+  assert.ok(isDue(f, at(11, 18)), "next Sunday");
+});

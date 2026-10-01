@@ -7,7 +7,7 @@ import type { GugEvent } from "./events.js";
 import { HttpError, claudeKeys, vaultGet } from "./local.js";
 import type { Store } from "./store.js";
 
-export type Trigger = { type: "manual" } | { type: "every"; minutes: number } | { type: "daily"; at: string };
+export type Trigger = { type: "manual" } | { type: "every"; minutes: number } | { type: "daily"; at: string } | { type: "weekly"; day: number; at: string };
 export interface FlowStep {
   agent: string;
   prompt: string;
@@ -53,6 +53,11 @@ export function validateFlow(input: any, existing?: Flow): Flow {
   } else if (t.type === "daily") {
     if (!HHMM.test(String(t.at))) throw new HttpError(400, "Use a time like 08:00.");
     trigger = { type: "daily", at: String(t.at) };
+  } else if (t.type === "weekly") {
+    const day = Number(t.day);
+    if (!(Number.isInteger(day) && day >= 0 && day <= 6)) throw new HttpError(400, "Pick a day of the week.");
+    if (!HHMM.test(String(t.at))) throw new HttpError(400, "Use a time like 08:00.");
+    trigger = { type: "weekly", day, at: String(t.at) };
   } else trigger = { type: "manual" };
   const steps: FlowStep[] = (Array.isArray(input?.steps) ? input.steps : []).slice(0, 5).map((s: any) => {
     const agent = String(s?.agent ?? "");
@@ -80,11 +85,13 @@ export function isDue(f: Flow, now: Date): boolean {
   if (!f.enabled) return false;
   const last = f.lastRunAt ? new Date(f.lastRunAt).getTime() : 0;
   if (f.trigger.type === "every") return now.getTime() - (last || new Date(f.createdAt).getTime()) >= f.trigger.minutes * 60_000;
-  if (f.trigger.type === "daily") {
+  if (f.trigger.type === "daily" || f.trigger.type === "weekly") {
     const [h, m] = f.trigger.at.split(":").map(Number);
     const slot = new Date(now);
+    if (f.trigger.type === "weekly") slot.setDate(slot.getDate() - ((slot.getDay() - f.trigger.day + 7) % 7)); // most recent such weekday
     slot.setHours(h, m, 0, 0);
-    return now >= slot && last < slot.getTime();
+    // Only fire within a day of the slot, so a laptop that was asleep all week doesn't run a stale job.
+    return now >= slot && now.getTime() - slot.getTime() < 864e5 && last < slot.getTime();
   }
   return false;
 }
@@ -157,6 +164,6 @@ export function startScheduler(store: Store): () => void {
 export const TEMPLATES: Omit<Flow, "id" | "createdAt" | "runs">[] = [
   { name: "Morning plan", enabled: false, trigger: { type: "daily", at: "08:00" }, steps: [{ agent: "tempo", prompt: "It's {{date}}. Write me a focused plan for today: 3 priorities, time blocks with breaks, and one thing to say no to. Keep it under 150 words." }], deliver: { inbox: true, discord: false } },
   { name: "Weekly content ideas", enabled: false, trigger: { type: "daily", at: "09:00" }, steps: [{ agent: "scout", prompt: "List 5 trending topics this week for a desk-setup / productivity audience, one line each." }, { agent: "echo", prompt: "Turn these into 5 short-form video ideas with a hook line each:\n{{previous}}" }], deliver: { inbox: true, discord: false } },
-  { name: "Money check-in", enabled: false, trigger: { type: "manual" }, steps: [{ agent: "ledger", prompt: "Give me a 5-point weekly money check-in checklist for someone running a small online store and a Roblox game." }], deliver: { inbox: true, discord: false } },
+  { name: "Money check-in", enabled: false, trigger: { type: "weekly", day: 0, at: "18:00" }, steps: [{ agent: "ledger", prompt: "Give me a 5-point weekly money check-in checklist for someone running a small online store and a Roblox game." }], deliver: { inbox: true, discord: false } },
   { name: "Security sweep", enabled: false, trigger: { type: "manual" }, steps: [{ agent: "sentinel", prompt: "Give me a 6-item monthly security checklist for my accounts, API keys and devices, most important first." }], deliver: { inbox: true, discord: false } },
 ];

@@ -5,7 +5,8 @@ import { Md } from "../Md";
 import { play } from "../sfx";
 import { Icon, P, Seg, Sigil, Switch } from "../ui";
 
-type Trigger = { type: "manual" } | { type: "every"; minutes: number } | { type: "daily"; at: string };
+type Trigger = { type: "manual" } | { type: "every"; minutes: number } | { type: "daily"; at: string } | { type: "weekly"; day: number; at: string };
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 interface Step { agent: string; prompt: string }
 interface Run { at: string; ok: boolean; ms: number; output: string; trigger: string }
 interface Flow { id: string; name: string; enabled: boolean; trigger: Trigger; steps: Step[]; deliver: { inbox: boolean; discord: boolean }; lastRunAt?: string; runs: Run[] }
@@ -15,7 +16,7 @@ interface Inbox { id: string; flowId: string; title: string; body: string; at: s
 const AGENTS = ["atlas", "ledger", "quant", "muse", "echo", "relay", "scout", "forge", "vox", "tempo", "sage", "sentinel"];
 const NAME = (id: string) => id.charAt(0).toUpperCase() + id.slice(1);
 const blank = (): Draft => ({ name: "New flow", enabled: true, trigger: { type: "manual" }, steps: [{ agent: "atlas", prompt: "" }], deliver: { inbox: true, discord: false } });
-const describe = (t: Trigger) => (t.type === "daily" ? `Every day at ${t.at}` : t.type === "every" ? `Every ${t.minutes >= 60 ? `${t.minutes / 60} h` : `${t.minutes} min`}` : "When you press Run");
+const describe = (t: Trigger) => (t.type === "weekly" ? `${WEEKDAYS[t.day]}s at ${t.at}` : t.type === "daily" ? `Every day at ${t.at}` : t.type === "every" ? `Every ${t.minutes >= 60 ? `${t.minutes / 60} h` : `${t.minutes} min`}` : "When you press Run");
 const ago = (iso?: string) => {
   if (!iso) return "never";
   const s = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -169,7 +170,15 @@ export function Flows() {
               <div>
                 <div className="eyebrow" style={{ fontSize: 10, marginBottom: 8 }}>When</div>
                 <div className="row" style={{ flexWrap: "wrap", gap: 12 }}>
-                  <Seg label="Trigger" value={draft.trigger.type} width={330} options={[["manual", "Manual"], ["daily", "Daily"], ["every", "Repeat"]]} onChange={(t) => setDraft({ ...draft, trigger: t === "daily" ? { type: "daily", at: "08:00" } : t === "every" ? { type: "every", minutes: 60 } : { type: "manual" } })} />
+                  <Seg label="Trigger" value={draft.trigger.type} width={420} options={[["manual", "Manual"], ["daily", "Daily"], ["weekly", "Weekly"], ["every", "Repeat"]]} onChange={(t) => setDraft({ ...draft, trigger: t === "daily" ? { type: "daily", at: "08:00" } : t === "weekly" ? { type: "weekly", day: 0, at: "18:00" } : t === "every" ? { type: "every", minutes: 60 } : { type: "manual" } })} />
+                  {draft.trigger.type === "weekly" && (
+                    <>
+                      <select aria-label="Day" className="field" value={draft.trigger.day} onChange={(e) => draft.trigger.type === "weekly" && setDraft({ ...draft, trigger: { ...draft.trigger, day: Number(e.target.value) } })} style={{ width: 150 }}>
+                        {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
+                      </select>
+                      <input aria-label="Time" type="time" className="field" value={draft.trigger.at} onChange={(e) => draft.trigger.type === "weekly" && setDraft({ ...draft, trigger: { ...draft.trigger, at: e.target.value } })} style={{ width: 130 }} />
+                    </>
+                  )}
                   {draft.trigger.type === "daily" && <input aria-label="Time" type="time" className="field" value={draft.trigger.at} onChange={(e) => setDraft({ ...draft, trigger: { type: "daily", at: e.target.value } })} style={{ width: 130 }} />}
                   {draft.trigger.type === "every" && (
                     <select aria-label="Interval" className="field" value={draft.trigger.minutes} onChange={(e) => setDraft({ ...draft, trigger: { type: "every", minutes: Number(e.target.value) } })} style={{ width: 160 }}>

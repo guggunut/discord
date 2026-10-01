@@ -28,11 +28,13 @@ export async function briefing(store: Store) {
     .filter((f) => f.enabled && f.trigger.type !== "manual")
     .map((f) => {
       let at: number;
-      if (f.trigger.type === "daily") {
+      if (f.trigger.type === "daily" || f.trigger.type === "weekly") {
         const [h, m] = f.trigger.at.split(":").map(Number);
         const t = new Date(now);
         t.setHours(h, m, 0, 0);
-        if (t <= now || (f.lastRunAt && new Date(f.lastRunAt) >= t)) t.setDate(t.getDate() + 1);
+        const step = f.trigger.type === "weekly" ? 7 : 1;
+        if (f.trigger.type === "weekly") t.setDate(t.getDate() + ((f.trigger.day - t.getDay() + 7) % 7));
+        if (t <= now || (f.lastRunAt && new Date(f.lastRunAt) >= t)) t.setDate(t.getDate() + step);
         at = t.getTime();
       } else at = (f.lastRunAt ? Date.parse(f.lastRunAt) : Date.parse(f.createdAt)) + (f.trigger.type === "every" ? f.trigger.minutes : 0) * 60_000;
       return { name: f.name, at: new Date(Math.max(at, now.getTime())).toISOString() };

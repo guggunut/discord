@@ -196,7 +196,7 @@ export async function dataCommand(cmd: string, args: string[], flags: Record<str
       if (!s.data.flows.length) return console.log(c(DIM, "\n  No flows yet — create one in the app's Flows screen.\n")), 0;
       console.log();
       for (const f of s.data.flows) {
-        const when = f.trigger.type === "daily" ? `daily ${f.trigger.at}` : f.trigger.type === "every" ? `every ${f.trigger.minutes} min` : "manual";
+        const when = f.trigger.type === "daily" ? `daily ${f.trigger.at}` : f.trigger.type === "weekly" ? `${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][f.trigger.day]} ${f.trigger.at}` : f.trigger.type === "every" ? `every ${f.trigger.minutes} min` : "manual";
         console.log(`  ${f.enabled ? c(RED, "●") : c(DIM, "○")} ${c(BOLD, f.name.padEnd(26))} ${c(DIM, when.padEnd(16))} ${c(DIM, f.lastRunAt ? `last ${new Date(f.lastRunAt).toLocaleString("en-GB")}` : "never run")}`);
       }
       console.log(c(DIM, `\n  Run one now: gug flows run "${s.data.flows[0].name}"\n`));

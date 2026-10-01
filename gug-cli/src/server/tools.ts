@@ -141,7 +141,7 @@ export function toolsFor(store: Store, agentId: string): AgentTool[] {
       label: "Set up an automation",
       def: tool("create_flow", "Create an automation that runs agents on a schedule and sends the result to the inbox (and optionally Discord). It is created switched OFF so the user can review it first.", {
         name: { type: "string" },
-        trigger: { type: "object", description: '{"type":"daily","at":"08:00"} or {"type":"every","minutes":60} or {"type":"manual"}' },
+        trigger: { type: "object", description: '{"type":"daily","at":"08:00"}, {"type":"weekly","day":0,"at":"18:00"} (0 = Sunday), {"type":"every","minutes":60} or {"type":"manual"}' },
         steps: { type: "array", description: "1-5 steps, each {agent, prompt}. Agents: atlas, ledger, quant, muse, echo, relay, scout, forge, vox, tempo, sage, sentinel. Prompts may use {{date}}, {{time}}, {{previous}}.", items: { type: "object" } },
         discord: { type: "boolean", description: "Also post to Discord." },
       }, ["name", "steps"]),
