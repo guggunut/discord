@@ -1,0 +1,19 @@
+/* App-only additions on top of the design system. */
+.md p { margin: 0 0 10px; }
+.md p:last-child { margin-bottom: 0; }
+.md code { font-family: 'Geist Mono', monospace; font-size: 12.5px; padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,0.07); }
+.md pre { margin: 10px 0; padding: 12px 14px; border-radius: 12px; background: #050505; border: 1px solid rgba(255,255,255,0.1); overflow-x: auto; }
+.md pre code { padding: 0; background: none; font-size: 12.5px; line-height: 1.6; }
+.md ul, .md ol { margin: 0 0 10px; padding-left: 20px; }
+.md li { margin: 3px 0; }
+.md strong { color: #fff; }
+.md h1, .md h2, .md h3 { font-size: 15px; margin: 12px 0 6px; }
+.bubble-me { align-self: flex-end; max-width: 78%; padding: 11px 14px; border-radius: 16px 16px 4px 16px; background: #F4F4F5; color: #050505; font-size: 14px; line-height: 1.55; white-space: pre-wrap; }
+.bubble-ai { padding: 11px 14px; border-radius: 4px 16px 16px 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); font-size: 14px; line-height: 1.6; min-width: 0; overflow-wrap: anywhere; }
+.scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #27272A transparent; }
+.label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #A1A1AA; }
+.muted { color: #A1A1AA; }
+.row { display: flex; align-items: center; gap: 10px; }
+.err-text { font-size: 13px; color: #FF5A66; }
+textarea.field { height: auto; padding: 12px 14px; line-height: 1.5; resize: vertical; }
+iframe.preview { width: 100%; height: 100%; border: 0; background: #fff; border-radius: 12px; }
