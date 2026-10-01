@@ -41,6 +41,7 @@ import { TEMPLATES as PROJECT_TEMPLATES, templateById as projectTemplate, zip } 
 import { focusStats } from "./focus.js";
 import { ask, bearer, createToken, listTokens } from "./integrations.js";
 import { parsePlaceId, recordSnapshot, robloxStats, universeFor } from "./roblox.js";
+import { connectShopify, disconnectShopify, syncShopify } from "./shopify.js";
 import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -364,6 +365,7 @@ export function createApp(store: Store) {
   });
   app.delete("/api/ventures/streams/:id", (req, res) => {
     const id = String(req.params.id);
+    if (v().streams.find((s) => s.id === id)?.shop) disconnectShopify(store, id);
     v().streams = v().streams.filter((s) => s.id !== id);
     v().entries = v().entries.filter((e) => e.streamId !== id);
     store.save();
@@ -395,6 +397,16 @@ export function createApp(store: Store) {
     st.universeId = undefined;
     delete store.data.robloxHistory[st.id];
     store.save();
+    res.json({ ok: true });
+  });
+  app.post("/api/ventures/streams/:id/shopify", async (req, res) => {
+    const r = await connectShopify(store, String(req.params.id), req.body?.shop, req.body?.token);
+    const sync = await syncShopify(store, String(req.params.id));
+    res.json({ ...r, ...sync });
+  });
+  app.post("/api/ventures/streams/:id/shopify/sync", async (req, res) => res.json(await syncShopify(store, String(req.params.id))));
+  app.delete("/api/ventures/streams/:id/shopify", (req, res) => {
+    disconnectShopify(store, String(req.params.id));
     res.json({ ok: true });
   });
   app.post("/api/ventures/entries", (req, res) => {

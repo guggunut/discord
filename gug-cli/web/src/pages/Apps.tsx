@@ -20,9 +20,7 @@ interface Repo {
 }
 
 const SOON: [string, string, string][] = [
-  ["shopify", "Shopify", "Orders and margins for Ledger"],
   ["stripe", "Stripe", "Payments and payouts"],
-  ["roblox", "Roblox Open Cloud", "Game analytics and DevEx"],
   ["instagram", "Instagram", "Posts and insights for Echo"],
   ["tiktok", "TikTok", "Videos and ads"],
   ["youtube", "YouTube", "Uploads and analytics"],

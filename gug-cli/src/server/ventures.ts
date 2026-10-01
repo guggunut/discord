@@ -21,6 +21,9 @@ export interface Stream {
   createdAt: string;
   /** Roblox experience linked for live stats. */
   universeId?: number;
+  /** Shopify store synced into this stream (token lives in the vault). */
+  shop?: string;
+  syncedAt?: string;
 }
 export interface Entry {
   id: string;
@@ -54,7 +57,7 @@ export function validateStream(input: any, existing?: Stream): Stream {
   const robux = input?.robux === undefined ? kind === "roblox" : !!input.robux;
   const rate = Number(input?.rate ?? existing?.rate ?? DEFAULT_ROBUX_RATE);
   if (robux && !(rate > 0 && rate < 1)) throw new HttpError(400, "Robux rate should be a small number, like 0.0035.");
-  return { id: existing?.id ?? randomUUID(), name, kind, robux, rate: robux ? rate : 1, sample: existing?.sample, createdAt: existing?.createdAt ?? new Date().toISOString(), universeId: kind === "roblox" ? existing?.universeId : undefined };
+  return { id: existing?.id ?? randomUUID(), name, kind, robux, rate: robux ? rate : 1, sample: existing?.sample, createdAt: existing?.createdAt ?? new Date().toISOString(), universeId: kind === "roblox" ? existing?.universeId : undefined, shop: kind === "shopify" ? existing?.shop : undefined, syncedAt: existing?.syncedAt };
 }
 
 export function validateEntry(v: Ventures, input: any): Entry {

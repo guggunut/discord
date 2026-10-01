@@ -9,7 +9,7 @@ import { BRAND, Brand, Icon, P, Seg, Sigil, Switch } from "../ui";
 type Range = "7d" | "30d" | "90d" | "12m";
 type Kind = "shopify" | "roblox" | "gumroad" | "etsy" | "youtube" | "other";
 interface Totals { revenue: number; costs: number; refunds: number; profit: number; orders: number }
-interface StreamRow { id: string; name: string; kind: Kind; robux: boolean; rate: number; sample?: boolean; universeId?: number; totals: Totals; margin: number; change: number | null; rawSales: number }
+interface StreamRow { id: string; name: string; kind: Kind; robux: boolean; rate: number; sample?: boolean; universeId?: number; shop?: string; syncedAt?: string; totals: Totals; margin: number; change: number | null; rawSales: number }
 interface Entry { id: string; streamId: string; date: string; type: "sale" | "cost" | "refund"; amount: number; orders: number; note: string; sample?: boolean }
 interface Kpi { value: number; change: number | null }
 interface Summary {
@@ -180,6 +180,7 @@ export function Ventures() {
                     <Change v={x.change} />
                   </div>
                   {x.kind === "roblox" && <RobloxLive stream={x} onChange={() => void load()} />}
+                  {x.kind === "shopify" && !x.sample && <ShopifyLink stream={x} onChange={() => void load()} />}
                 </section>
               ))}
             </div>
@@ -613,6 +614,74 @@ function RobloxLive({ stream: x, onChange }: { stream: StreamRow; onChange: () =
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+const since = (iso?: string) => {
+  if (!iso) return "never";
+  const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
+};
+
+/** Connect a Shopify store to this stream and pull orders in (hourly, or now). */
+function ShopifyLink({ stream: x, onChange }: { stream: StreamRow; onChange: () => void }) {
+  const { toast } = useApp();
+  const [open, setOpen] = useState(false);
+  const [shop, setShop] = useState("");
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState(false);
+  const run = async (fn: () => Promise<{ added?: number; orders?: number; name?: string }>) => {
+    setBusy(true);
+    try {
+      const r = await fn();
+      play("success");
+      toast(r.name ? `Connected ${r.name} — imported ${r.added ?? 0} entries from ${r.orders ?? 0} orders.` : `Synced: ${r.added ?? 0} new entries from ${r.orders ?? 0} orders.`);
+      setOpen(false);
+      setToken("");
+      onChange();
+    } catch (e) {
+      toast((e as Error).message, "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (x.shop)
+    return (
+      <div className="row" style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.07)", gap: 8 }}>
+        <span className="mono" style={{ fontSize: 11, flexGrow: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ color: "#FF2B3A" }}>●</span> {x.shop.replace(".myshopify.com", "")} <span className="muted">· synced {since(x.syncedAt)}</span>
+        </span>
+        <button type="button" className="chip" style={{ height: 24 }} disabled={busy} onClick={() => void run(() => api(`/api/ventures/streams/${x.id}/shopify/sync`, { body: {} }))}>
+          <Icon d={P.refresh} size={11} /> {busy ? "…" : "Sync"}
+        </button>
+        <button type="button" className="chip" aria-label="Disconnect Shopify" title="Disconnect" style={{ height: 24, padding: "0 6px" }} onClick={async () => confirm("Disconnect this Shopify store? Imported entries stay.") && (await api(`/api/ventures/streams/${x.id}/shopify`, { method: "DELETE" }), onChange())}>
+          <Icon d={P.x} size={10} />
+        </button>
+      </div>
+    );
+  if (!open)
+    return (
+      <button type="button" className="chip" style={{ marginTop: 12 }} onClick={() => setOpen(true)}>
+        <Icon d={P.plus} size={11} /> Connect Shopify to sync orders
+      </button>
+    );
+  return (
+    <div className="tx-drop" style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+      <ol className="muted" style={{ margin: 0, paddingLeft: 18, fontSize: 11.5, lineHeight: 1.55 }}>
+        <li>Shopify admin → Settings → Apps → Develop apps → Create an app.</li>
+        <li>Configure Admin API scopes: tick <b>read_orders</b> only. Install the app.</li>
+        <li>Copy the Admin API access token (starts with <span className="mono">shpat_</span>).</li>
+      </ol>
+      <input aria-label="Store address" className="field" value={shop} onChange={(e) => setShop(e.target.value)} placeholder="your-store.myshopify.com" style={{ height: 34, fontSize: 12 }} />
+      <input aria-label="Admin API access token" className="field mono" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="shpat_…" style={{ height: 34, fontSize: 12 }} />
+      <div className="row" style={{ gap: 6 }}>
+        <button type="button" className="btn" style={{ height: 32, fontSize: 12, flex: 1 }} onClick={() => setOpen(false)}>Cancel</button>
+        <button type="button" className="btn btn-red" style={{ height: 32, fontSize: 12, flex: 1 }} disabled={busy || !shop || !token} onClick={() => void run(() => api(`/api/ventures/streams/${x.id}/shopify`, { body: { shop, token } }))}>
+          {busy ? "Connecting…" : "Connect & sync"}
+        </button>
+      </div>
+      <p className="muted" style={{ margin: 0, fontSize: 10.5 }}>The token is encrypted on this computer. GUG-cli only reads orders, then checks hourly for new ones.</p>
     </div>
   );
 }

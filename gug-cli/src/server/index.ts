@@ -8,6 +8,7 @@ import { setMemoryProvider } from "./agents.js";
 import { memoryText } from "./memory.js";
 import { setUsageSink } from "./engines/claude.js";
 import { recordSnapshot, robloxStats } from "./roblox.js";
+import { syncShopify } from "./shopify.js";
 
 export function startServer(opts: { port?: number; host?: string; quiet?: boolean } = {}) {
   const store = new Store(paths.db());
@@ -22,9 +23,12 @@ export function startServer(opts: { port?: number; host?: string; quiet?: boolea
   const app = createApp(store);
   const stopScheduler = startScheduler(store);
   const stopAlerts = startAlertWatcher(store);
-  // Hourly snapshot of linked Roblox games, so the visits chart fills in even when you don't look.
+  // Hourly: snapshot linked Roblox games and pull new Shopify orders, so Ventures stays current on its own.
   const robloxTimer = setInterval(() => {
-    for (const st of store.data.ventures.streams) if (st.universeId) void robloxStats(st.universeId).then((s) => recordSnapshot(store, st.id, s)).catch(() => {});
+    for (const st of store.data.ventures.streams) {
+      if (st.universeId) void robloxStats(st.universeId).then((s) => recordSnapshot(store, st.id, s)).catch(() => {});
+      if (st.shop) void syncShopify(store, st.id, 7).catch(() => {});
+    }
   }, 60 * 60_000);
   const port = opts.port ?? config.port;
   const host = opts.host ?? config.host;
