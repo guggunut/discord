@@ -113,6 +113,74 @@ export async function* roundtable(keys: string[], ids: string[], prompt: string,
   }
 }
 
+/**
+ * Team mode: Atlas reads the request, hands a specific task to each of the
+ * right agents, they do their part (with their tools), and Atlas combines it.
+ */
+export async function* team(store: Store, ids: string[], prompt: string, signal?: AbortSignal): AsyncGenerator<GugEvent> {
+  const keys = claudeKeys(store);
+  const atlas = AGENTS[0];
+  const chosen = ids.map(agentById).filter((a): a is AgentPreset => !!a && a.id !== "atlas" && a.id !== "forge");
+  const pool = chosen.length ? chosen : AGENTS.filter((a) => a.id !== "atlas" && a.id !== "forge");
+
+  // 1. Atlas plans (quietly — we show the plan, not the JSON).
+  yield { type: "tool", name: "Atlas", detail: "planning who does what…", agent: "atlas" };
+  let raw = "";
+  let model: string | undefined;
+  for await (const ev of runClaude({
+    keys,
+    system: `${systemFor(atlas)}\n\nYou are planning work for your team. Reply with ONLY JSON: {"assignments":[{"agent":"<id>","task":"<one concrete instruction, 1-2 sentences>"}]}. Use 1 to 4 agents, only from this list, each at most once, in the order the work should happen:\n${pool.map((a) => `- ${a.id}: ${a.role}`).join("\n")}`,
+    messages: [{ role: "user", content: prompt }],
+    mode: "fast",
+    agent: "atlas",
+    signal,
+    maxTokens: 1200,
+  })) {
+    if (ev.type === "text") raw += ev.text;
+    else if (ev.type === "start") model = ev.model;
+    else if (ev.type === "error") return yield ev;
+  }
+  let plan: { agent: AgentPreset; task: string }[] = [];
+  try {
+    const j = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
+    const seen = new Set<string>();
+    for (const x of Array.isArray(j.assignments) ? j.assignments : []) {
+      const a = pool.find((p) => p.id === String(x?.agent));
+      const task = String(x?.task ?? "").trim().slice(0, 600);
+      if (a && task && !seen.has(a.id)) {
+        seen.add(a.id);
+        plan.push({ agent: a, task });
+      }
+    }
+  } catch {
+    /* fall back below */
+  }
+  if (!plan.length) plan = (chosen.length ? chosen : pool.slice(0, 2)).slice(0, 4).map((agent) => ({ agent, task: `From your role as ${agent.role}: ${prompt}` }));
+  plan = plan.slice(0, 4);
+  yield { type: "start", engine: "claude", model, agent: "atlas" };
+  yield { type: "text", agent: "atlas", text: `**Here’s the plan.**\n\n${plan.map((p, i) => `${i + 1}. **${p.agent.name}** — ${p.task}`).join("\n")}` };
+  yield { type: "done", engine: "claude", model, agent: "atlas" };
+
+  // 2. Each agent does its part, seeing what the others delivered.
+  const delivered: string[] = [];
+  for (const { agent, task } of plan) {
+    if (signal?.aborted) return;
+    const tools = toolsFor(store, agent.id);
+    const context = delivered.length ? `\n\nWhat your teammates have delivered so far:\n${delivered.join("\n\n")}` : "";
+    const system = tools.length ? `${systemFor(agent)}\n\n${TOOL_SYSTEM}\nToday is ${new Date().toDateString()}.` : systemFor(agent);
+    let said = "";
+    for await (const ev of runClaude({ keys, system, messages: [{ role: "user", content: `The user asked the team: "${prompt}"\n\nAtlas gave you this part: ${task}\nDo it now — concrete output, not a description of what you'd do. Under 200 words.${context}` }], mode: "deep", agent: agent.id, signal, maxTokens: 4000, tools })) {
+      if (ev.type === "text") said += ev.text;
+      yield ev;
+    }
+    if (said.trim()) delivered.push(`${agent.name} (${agent.role}): ${said.trim()}`);
+  }
+
+  // 3. Atlas pulls it together.
+  if (signal?.aborted || !delivered.length) return;
+  yield* runClaude({ keys, system: systemFor(atlas), messages: [{ role: "user", content: `The user asked: "${prompt}". Your team delivered:\n\n${delivered.join("\n\n")}\n\nCombine it into one answer: what's done, what the user should do next (max 3 steps), and the one decision they need to make. Under 160 words.` }], mode: "deep", agent: "atlas", signal, maxTokens: 2000 });
+}
+
 /** Vibe coding through the Claude API: the model writes whole files, we save them. */
 export async function* vibeWithClaude(keys: string[], project: string, prompt: string, files: { path: string; content: string }[], signal?: AbortSignal): AsyncGenerator<GugEvent> {
   const dir = projectDir(project);

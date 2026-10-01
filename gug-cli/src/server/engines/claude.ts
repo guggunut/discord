@@ -151,8 +151,13 @@ export async function* runClaude(run: ClaudeRun): AsyncGenerator<GugEvent> {
             },
             { signal: run.signal },
           );
-          if (turn === 0) yield { type: "start", engine: "claude", model: step.model, agent: run.agent };
+          let opened = turn > 0;
           for await (const ev of stream) {
+            // Announce the model only once it's actually answering, so failed attempts stay invisible.
+            if (!opened) {
+              opened = true;
+              yield { type: "start", engine: "claude", model: step.model, agent: run.agent };
+            }
             if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
               emitted = true;
               yield { type: "text", text: ev.delta.text, agent: run.agent };

@@ -38,7 +38,7 @@ import { briefing } from "./today.js";
 import { addFact } from "./memory.js";
 import { coolingStatus, resetCooling } from "./engines/claude.js";
 import { TEMPLATES as PROJECT_TEMPLATES, templateById as projectTemplate, zip } from "./templates.js";
-import { chat, roundtable, vibeWithClaude } from "./router.js";
+import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
 
@@ -180,7 +180,9 @@ export function createApp(store: Store) {
 
   app.post("/api/roundtable", async (req, res) => {
     const ids = Array.isArray(req.body?.agents) ? req.body.agents.map((x: unknown) => str(x, 40)) : [];
-    await sse(res, (signal) => roundtable(claudeKeys(store), ids, str(req.body?.prompt, 8000), asMode(req.body?.mode), signal, store));
+    const prompt = str(req.body?.prompt, 8000);
+    if (req.body?.team) return void (await sse(res, (signal) => team(store, ids, prompt, signal)));
+    await sse(res, (signal) => roundtable(claudeKeys(store), ids, prompt, asMode(req.body?.mode), signal, store));
   });
 
   // ---------- code ----------

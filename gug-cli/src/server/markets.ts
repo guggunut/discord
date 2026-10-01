@@ -199,6 +199,8 @@ export function paperTrade(m: Markets, q: Pick<Quote, "symbol" | "kind" | "label
 
 /** Checks alerts every 5 minutes; a fired alert lands in the inbox once per crossing. */
 export function startAlertWatcher(store: Store): () => void {
+  // Older data may have coins labelled by their id ("bitcoin"); show tickers instead.
+  for (const w of store.data.markets.watch) if (w.kind === "crypto") w.label = parseSymbol(w.symbol, "crypto").label;
   const tick = async () => {
     for (const w of store.data.markets.watch) {
       if (!w.alert || w.alert.firedAt) continue;

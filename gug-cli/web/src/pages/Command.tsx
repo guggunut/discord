@@ -28,6 +28,7 @@ export function Command() {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [sel, setSel] = useState<string[]>(() => JSON.parse(localStorage.getItem("gug-sel") ?? '["atlas","scout"]'));
   const [mode, setMode] = useState<Mode>("deep");
+  const [how, setHow] = useState<"turns" | "team">(() => (localStorage.getItem("gug-how") === "team" ? "team" : "turns"));
   const [engine, setEngine] = useState<Engine>("auto");
   const [draft, setDraft] = useState(() => {
     const pf = localStorage.getItem("gug-prefill") ?? "";
@@ -92,7 +93,7 @@ export function Command() {
     };
     // One agent → direct chat (any engine). Several → they take turns and build on each other.
     abortRef.current =
-      sel.length === 1 ? stream("/api/chat", { agent: sel[0], text, mode, engine }, onEvent, done) : stream("/api/roundtable", { agents: sel, prompt: text, mode }, onEvent, done);
+      sel.length === 1 ? stream("/api/chat", { agent: sel[0], text, mode, engine }, onEvent, done) : stream("/api/roundtable", { agents: sel, prompt: text, mode, team: how === "team" }, onEvent, done);
   };
 
   const noKey = !state.engines.claudeKeys;
@@ -147,7 +148,12 @@ export function Command() {
               </button>
             ))}
             {!sel.length && <span className="fade err-text" style={{ fontSize: 12 }}>Pick at least one agent</span>}
-            {sel.length > 1 && <span className="muted" style={{ fontSize: 11, marginLeft: "auto" }}>They’ll take turns and build on each other</span>}
+            {sel.length > 1 && (
+              <span className="row" style={{ marginLeft: "auto", gap: 8 }}>
+                <span className="muted hide-sm" style={{ fontSize: 11 }}>{how === "team" ? "Atlas hands out tasks, then combines the work" : "They take turns and build on each other"}</span>
+                <Seg label="How they work" value={how} width={190} options={[["turns", "Turns"], ["team", "Team"]]} onChange={(v) => (setHow(v), localStorage.setItem("gug-how", v))} />
+              </span>
+            )}
           </div>
           <label className="sr" htmlFor="composer">
             Message your agents

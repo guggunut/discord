@@ -199,3 +199,23 @@ test("a model that just hit a rate limit is skipped until it cools down, and usa
   setUsageSink(() => {});
   resetCooling();
 });
+
+test("team mode: Atlas plans, the team works in order, Atlas wraps up", async () => {
+  const { team } = await import("../src/server/router.ts");
+  const { Store } = await import("../src/server/store.ts");
+  const { vaultSet } = await import("../src/server/local.ts");
+  const { resetCooling } = await import("../src/server/engines/claude.ts");
+  resetCooling();
+  const store = new Store(path.join(process.env.GUG_DATA!, "team-db.json"));
+  vaultSet(store, "anthropic", "sk-ant-test-key-for-team");
+  store.data.prefs.agents.ledger = { autonomy: "off" };
+  store.data.prefs.agents.echo = { autonomy: "off" };
+  const events: any[] = [];
+  for await (const ev of team(store, ["atlas", "ledger", "echo"], "launch my lamp")) events.push(ev);
+  const starts = events.filter((e) => e.type === "start").map((e) => e.agent);
+  assert.deepEqual(starts, ["atlas", "ledger", "echo", "atlas"], "plan → each agent → summary");
+  const plan = events.find((e) => e.type === "text" && /Here’s the plan/.test(e.text));
+  assert.match(plan.text, /\*\*Ledger\*\*/);
+  assert.match(plan.text, /\*\*Echo\*\*/);
+  assert.equal(events.at(-1).type, "done");
+});
