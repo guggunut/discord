@@ -62,7 +62,7 @@ Restart `gug serve` and the Code tab and Forge will use it automatically.
 | **Focus timer** | 25/50/90-minute sessions from the top bar with optional brown noise; minutes and streaks show in the Today briefing and Tempo/Sage can see them. |
 | **Now playing** | Shows and controls whatever music is playing on your computer. |
 
-**Anywhere:** press **Ctrl/⌘ + K** (or `/`) for the command palette, `g` then a letter to jump (g M = Markets), and `?` for all shortcuts. The palette jumps to any screen, run quick actions, or type a question and it's routed to the agent whose speciality fits (a tax question goes to Ledger, a logo to Muse). On narrow windows a bottom bar replaces the side rail.
+**Anywhere:** press **Ctrl/⌘ + K** (or `/`) for the command palette, `g` then a letter to jump (g M = Markets), and `?` for all shortcuts. The palette jumps to any screen and runs quick actions; type a question and it's routed to the agent whose speciality fits (a tax question goes to Ledger, a logo to Muse). On narrow windows a bottom bar replaces the side rail.
 
 ### Engines and the router
 
