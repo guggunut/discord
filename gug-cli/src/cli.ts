@@ -28,7 +28,7 @@ const LOGO = [
   "╚██████╔╝╚██████╔╝╚██████╔╝",
   " ╚═════╝  ╚═════╝  ╚═════╝ ",
 ];
-const SIDE = ["", "", `  ${c(BOLD, "GUG-cli")} ${c(DIM, "v0.2.0")}`, `  ${c(DIM, "your agents. your keys.")}`, "", ""];
+const SIDE = ["", "", `  ${c(BOLD, "GUG-cli")} ${c(DIM, "v0.3.0")}`, `  ${c(DIM, "your agents. your keys.")}`, "", ""];
 const BANNER = "\n" + LOGO.map((l, i) => " " + c(RED, l) + SIDE[i]).join("\n") + "\n";
 
 const HELP = `${BANNER}

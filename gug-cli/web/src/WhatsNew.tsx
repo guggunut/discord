@@ -3,8 +3,11 @@ import { useEffect, useState } from "react";
 import { play } from "./sfx";
 import { Icon, P, type Route } from "./ui";
 
-export const VERSION = "0.2.0";
+export const VERSION = "0.3.0";
 const ITEMS: [Route, string, string, string][] = [
+  ["code", "Code", "Build in Blender & Roblox Studio", "Connect apps through MCP, then watch Live view: Blender's viewport (or any window you share) updates as Forge works, step by step."],
+  ["agents", "Agents", "Your aesthetic, every AI", "Give each agent its own profile picture — crop it, then go mono, red or duotone to match the rest."],
+  ["ventures", "Ventures", "Charts you can spin", "Bar charts are real 3D now: drag to orbit, hover to lift a bar, click to pin it."],
   ["ventures", "Ventures", "Ventures", "Track every store, game and product — Shopify order sync (or CSV), live Roblox player stats, a monthly goal, charts and a Ledger review."],
   ["markets", "Markets", "Markets", "Live watchlist, charts, headlines, price alerts and a $10k paper-trading account. Quant explains — never advises."],
   ["studio", "Studio", "Studio", "Muse draws vector art, Beats is a 16-step drum machine, the Shorts maker turns art + captions + your beat into 9:16 videos, and Vox does voiceovers."],
@@ -12,7 +15,7 @@ const ITEMS: [Route, string, string, string][] = [
   ["agents", "Agents", "Agents with tools", "Agents now read and act on your data (with your say-so), share a memory of you, and offer starter prompts."],
   ["command", "Command", "Team mode + voice", "Atlas hands tasks to the right agents and wraps up. Speak instead of typing. A live Today briefing."],
   ["flows", "Flows", "Smarter automations", "Weekly schedules, real data in every run, and desktop notifications for results and price alerts."],
-  ["code", "Code", "Templates & zip", "Start from a landing page, an arcade game or Roblox scripts; download any project."],
+  ["code", "Code", "Templates, devices & zip", "Start from a landing page, an arcade game or Roblox scripts; preview on desktop, tablet or phone; download any project."],
   ["settings", "Settings", "Router & backups", "See tokens per model and what's cooling down; back up and restore everything (never your keys)."],
   ["apps", "Apps", "Local API", "Let your own Discord bot ask your agents — ready-made slash command included."],
 ];

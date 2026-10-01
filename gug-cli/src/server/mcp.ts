@@ -154,7 +154,7 @@ export function testServer(store: Store, s: McpServer, timeoutMs = 45_000): Prom
         }
       }
     });
-    send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "gug-cli", version: "0.2.0" } } });
+    send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "gug-cli", version: "0.3.0" } } });
   });
 }
 
