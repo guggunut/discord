@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import type Anthropic from "@anthropic-ai/sdk";
 import { validateFlow } from "./flows.js";
 import { addFact } from "./memory.js";
+import { focusStats } from "./focus.js";
 import { PLATFORMS, validatePost } from "./growth.js";
 import { HttpError, vaultList } from "./local.js";
 import { parseSymbol, quote, stats, type Span } from "./markets.js";
@@ -179,6 +180,14 @@ export function toolsFor(store: Store, agentId: string): AgentTool[] {
         return { text: `Remembered: ${f.text}`, summary: f.text };
       },
     },
+    focus_stats: {
+      label: "Checked your focus time",
+      def: tool("focus_stats", "See how much focused time the user has logged with GUG-cli's focus timer: minutes today, this week, current daily streak and recent sessions.", {}),
+      run: async () => {
+        const f = focusStats(store);
+        return { text: JSON.stringify(f), summary: `${f.today}m today · ${f.streak}-day streak` };
+      },
+    },
     security_status: {
       label: "Checked your setup",
       def: tool("security_status", "See how GUG-cli is secured on this computer: which connections are stored (names only, never values) and the safety settings.", {}),
@@ -189,15 +198,15 @@ export function toolsFor(store: Store, agentId: string): AgentTool[] {
     },
   };
   const by: Record<string, string[]> = {
-    atlas: ["money_summary", "watchlist", "market_quote", "list_posts", "list_flows", "inbox", "leave_note", "remember"],
+    atlas: ["focus_stats", "money_summary", "watchlist", "market_quote", "list_posts", "list_flows", "inbox", "leave_note", "remember"],
     ledger: ["money_summary", "log_money", "leave_note", "remember"],
     quant: ["market_quote", "watchlist", "add_to_watchlist", "leave_note", "remember"],
     echo: ["list_posts", "add_post", "leave_note", "remember"],
     muse: ["list_posts", "leave_note", "remember"],
     relay: ["list_flows", "create_flow", "inbox", "leave_note", "remember"],
-    tempo: ["list_posts", "list_flows", "inbox", "leave_note", "remember"],
+    tempo: ["focus_stats", "list_posts", "list_flows", "inbox", "leave_note", "remember"],
     scout: ["market_quote", "leave_note", "remember"],
-    sage: ["leave_note", "remember"],
+    sage: ["focus_stats", "leave_note", "remember"],
     vox: ["leave_note", "remember"],
     sentinel: ["security_status", "leave_note", "remember"],
     forge: ["leave_note", "remember"],

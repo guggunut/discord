@@ -38,6 +38,7 @@ import { briefing } from "./today.js";
 import { addFact } from "./memory.js";
 import { coolingStatus, resetCooling } from "./engines/claude.js";
 import { TEMPLATES as PROJECT_TEMPLATES, templateById as projectTemplate, zip } from "./templates.js";
+import { focusStats } from "./focus.js";
 import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -626,6 +627,16 @@ export function createApp(store: Store) {
   app.post("/api/usage/reset-cooling", (_req, res) => {
     resetCooling();
     res.json({ ok: true });
+  });
+
+  // ---------- focus ----------
+  app.get("/api/focus", (_req, res) => res.json(focusStats(store)));
+  app.post("/api/focus", (req, res) => {
+    const minutes = Math.round(Number(req.body?.minutes));
+    if (!(minutes >= 1 && minutes <= 240)) throw new HttpError(400, "Sessions are 1 to 240 minutes.");
+    store.data.focus = [...store.data.focus, { at: new Date().toISOString(), minutes, label: str(req.body?.label, 60) }].slice(-1000);
+    store.save();
+    res.json(focusStats(store));
   });
 
   // ---------- media ----------

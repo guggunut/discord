@@ -105,3 +105,6 @@ kbd{display:inline-block;min-width:18px;padding:1px 5px;border-radius:5px;border
 /* Keyboard focus: a clear red ring, only when navigating by keyboard. */
 :where(button, a, input, textarea, select, [tabindex]):focus-visible{outline:2px solid #FF2B3A;outline-offset:2px;box-shadow:0 0 0 4px rgba(255,43,58,.18)}
 .field:focus-visible{outline-offset:0}
+
+/* Top-bar popovers (focus timer, now playing) sit above page content like the 3D core. */
+.topbar{position:relative;z-index:40}

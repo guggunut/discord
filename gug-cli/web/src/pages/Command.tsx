@@ -352,6 +352,7 @@ interface Today {
   money: { currency: string; today: number; week: number; weekChange: number | null } | null;
   movers: { label: string; price: number; currency: string; changePct: number }[];
   nextFlow: { name: string; at: string } | null;
+  focus: { today: number; week: number; streak: number };
 }
 
 /** A small live briefing: inbox, today's posts, money, market movers and the next automation. */
@@ -378,7 +379,7 @@ function Briefing() {
       {right && <span style={{ flexShrink: 0, whiteSpace: "nowrap" }}>{right}</span>}
     </a>
   );
-  const empty = !t.inbox.unread && !t.posts.length && !t.money && !t.movers.length && !t.nextFlow;
+  const empty = !t.inbox.unread && !t.posts.length && !t.money && !t.movers.length && !t.nextFlow && !t.focus.today;
   return (
     <div>
       <div className="eyebrow" style={{ fontSize: 10, marginBottom: 6 }}>
@@ -401,6 +402,8 @@ function Briefing() {
       {t.movers.map((m) =>
         row("#/markets", <Icon d={P.Markets} size={16} color={m.changePct >= 0 ? "#F4F4F5" : "#FF2B3A"} />, <><b>{m.label}</b> <span className="muted">{m.changePct >= 0 ? "up" : "down"} today</span></>, <span className="mono" style={{ fontSize: 10, color: m.changePct >= 0 ? "#F4F4F5" : "#FF5A66" }}>{m.changePct >= 0 ? "▲" : "▼"} {Math.abs(m.changePct).toFixed(2)}%</span>, `m-${m.label}`),
       )}
+      {(t.focus.today > 0 || t.focus.streak > 0) &&
+        row("#/command", <Icon d={P.check} size={15} color="#FF2B3A" />, <>Focused <b>{t.focus.today} min</b> today <span className="muted">· {t.focus.week} this week</span></>, t.focus.streak > 1 ? <span className="mono" style={{ fontSize: 10, color: "#FF5A66" }}>{t.focus.streak}-DAY STREAK</span> : undefined, "focus")}
       {t.nextFlow &&
         row("#/flows", <Icon d={P.refresh} size={15} />, <>Next: <b>{t.nextFlow.name}</b></>, <span className="mono muted" style={{ fontSize: 10 }}>{new Date(t.nextFlow.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>, "flow")}
     </div>

@@ -76,6 +76,7 @@ export async function dataCommand(cmd: string, args: string[], flags: Record<str
       for (const p of t.posts) console.log(`  ${c(RED, "◆")} ${p.time} ${p.title} ${c(DIM, `${p.platform} · ${p.status}`)}`);
       if (t.money) console.log(`  ${c(RED, "£")} Profit today ${c(BOLD, money(t.money.today, t.money.currency))} ${c(DIM, `· this week ${money(t.money.week, t.money.currency)}`)} ${up(t.money.weekChange)}`);
       for (const m of t.movers) console.log(`  ${m.changePct >= 0 ? "▲" : c(RED, "▼")} ${c(BOLD, m.label)} ${m.price} ${m.currency} ${c(DIM, `${m.changePct >= 0 ? "+" : ""}${m.changePct}% today`)}`);
+      if (t.focus.today || t.focus.streak) console.log(`  ${c(RED, "◷")} Focused ${c(BOLD, `${t.focus.today} min`)} today ${c(DIM, `· ${t.focus.week} this week${t.focus.streak > 1 ? ` · ${t.focus.streak}-day streak` : ""}`)}`);
       if (t.nextFlow) console.log(`  ${c(RED, "↻")} Next automation: ${t.nextFlow.name} ${c(DIM, new Date(t.nextFlow.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }))}`);
       if (!t.inbox.unread && !t.posts.length && !t.money && !t.movers.length && !t.nextFlow) console.log(c(DIM, "  Quiet day. Add income streams, a watchlist or flows in the app."));
       console.log();

@@ -41,11 +41,12 @@ export interface DB {
   growth: Growth;
   memory: Memory;
   usage: Usage[];
+  focus: { at: string; minutes: number; label: string }[];
 }
 
 export const defaultPrefs = (): Prefs => ({ engine: "auto", codePermission: "acceptEdits", localUrl: "http://127.0.0.1:11434", localModel: "", agents: {} });
 
-const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {}, flows: [], inbox: [], ventures: emptyVentures(), markets: emptyMarkets(), studio: emptyStudio(), growth: emptyGrowth(), memory: emptyMemory(), usage: [] });
+const empty = (): DB => ({ version: 2, profile: { name: "", createdAt: new Date().toISOString() }, prefs: defaultPrefs(), secrets: {}, chats: {}, flows: [], inbox: [], ventures: emptyVentures(), markets: emptyMarkets(), studio: emptyStudio(), growth: emptyGrowth(), memory: emptyMemory(), usage: [], focus: [] });
 
 export class Store {
   data: DB;

@@ -16,6 +16,7 @@ import { Ventures } from "./pages/Ventures";
 import { Palette } from "./Palette";
 import { Notifier } from "./Notifier";
 import { Shortcuts } from "./Shortcuts";
+import { FocusEngine, FocusPill } from "./Focus";
 import { Markets } from "./pages/Markets";
 import { Studio } from "./pages/Studio";
 import { Growth } from "./pages/Growth";
@@ -139,7 +140,7 @@ export function App() {
           <MobileNav route={route} />
           <main className="main" key={route}>
             <Curtain route={route} />
-            <Topbar title={m.title} section={m.section} icon={m.icon} chips={chips} right={<MiniPlayer />} onHelp={() => setHelp((h) => !h)} />
+            <Topbar title={m.title} section={m.section} icon={m.icon} chips={chips} right={<><FocusPill /><MiniPlayer /></>} onHelp={() => setHelp((h) => !h)} />
             {page[route]}
             <Palette go={ctx.go} />
             <HelpPanel open={help} onClose={() => setHelp((h) => !h)} tips={m.tips} />
@@ -148,6 +149,7 @@ export function App() {
       </MediaProvider>
       <Notifier toast={toast} go={ctx.go} />
       <Shortcuts go={ctx.go} />
+      <FocusEngine toast={toast} />
       {toastMsg && (
         <div style={{ position: "fixed", left: 0, right: 0, bottom: 28, display: "flex", justifyContent: "center", zIndex: 95, pointerEvents: "none" }}>
           <div className="card pop" role="status" style={{ padding: "12px 18px", display: "flex", gap: 10, alignItems: "center", borderColor: toastMsg.kind === "err" ? "rgba(255,43,58,0.6)" : "rgba(255,255,255,0.2)" }}>

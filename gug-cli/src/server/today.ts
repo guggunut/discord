@@ -2,6 +2,7 @@
 import { quote } from "./markets.js";
 import type { Store } from "./store.js";
 import { summarise } from "./ventures.js";
+import { focusStats } from "./focus.js";
 
 export async function briefing(store: Store) {
   const now = new Date();
@@ -43,5 +44,6 @@ export async function briefing(store: Store) {
     money: v.streams.length ? { currency: v.currency, today: todayProfit, week: v.kpis.profit.value, weekChange: v.kpis.profit.change } : null,
     movers,
     nextFlow: nextFlow ?? null,
+    focus: focusStats(store),
   };
 }
