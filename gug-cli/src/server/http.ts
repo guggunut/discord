@@ -47,7 +47,7 @@ import { avatarVersions, readAvatar, removeAvatar, saveAvatar } from "./avatars.
 import { MCP_PRESETS, blenderSnapshot, removeServer, testServer, validateServer, writeClaudeConfig } from "./mcp.js";
 import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
-import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
+import { listFiles, listProjects, projectDir, readFile, safeJoin, withStorageShim, writeFile } from "./workspace.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const MODES: Mode[] = ["fast", "deep", "debate", "build"];
@@ -264,6 +264,7 @@ export function createApp(store: Store) {
     const full = safeJoin(dir, params[2] || "index.html");
     if (!existsSync(full)) throw new HttpError(404, "Not found.");
     res.set({ "content-security-policy": "sandbox allow-scripts allow-forms allow-modals; frame-ancestors 'self'", "x-frame-options": "SAMEORIGIN", "cache-control": "no-store" });
+    if (/\.html?$/i.test(full)) return void res.type("html").send(withStorageShim(readFileSync(full, "utf8")));
     res.sendFile(full);
   });
 

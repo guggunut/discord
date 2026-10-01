@@ -98,7 +98,7 @@ export async function* runClaudeCode(run: CodeRun): AsyncGenerator<GugEvent> {
       yield { type: "start", engine: "claude-code", model: msg.model };
     } else if (msg.type === "assistant" && Array.isArray(msg.message?.content)) {
       for (const block of msg.message.content) {
-        if (block.type === "text" && block.text) yield { type: "text", text: block.text + "\n" };
+        if (block.type === "text" && block.text) yield { type: "text", text: block.text + "\n\n" };
         if (block.type === "tool_use") yield { type: "tool", name: block.name, detail: summarizeTool(block.name, block.input ?? {}) };
       }
     } else if (msg.type === "result") {

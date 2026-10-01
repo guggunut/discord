@@ -113,3 +113,13 @@ h1 span { color: #ff2b3a; }
 p { color: #a1a1aa; }
 `);
 }
+
+// Previews run in an opaque-origin sandbox, where touching localStorage throws and
+// breaks most small apps. This gives them a working (in-memory) stand-in.
+const STORAGE_SHIM = `<script>(function(){function S(){var d={};return{get length(){return Object.keys(d).length},key:function(i){return Object.keys(d)[i]||null},getItem:function(k){k=String(k);return k in d?d[k]:null},setItem:function(k,v){d[String(k)]=String(v)},removeItem:function(k){delete d[String(k)]},clear:function(){d={}}}}["localStorage","sessionStorage"].forEach(function(n){try{window[n].length}catch(e){try{Object.defineProperty(window,n,{value:S(),configurable:true})}catch(_){}}})})();</script>`;
+export function withStorageShim(html: string): string {
+  const m = /<head[^>]*>/i.exec(html);
+  if (m) return html.slice(0, m.index + m[0].length) + STORAGE_SHIM + html.slice(m.index + m[0].length);
+  const d = /<!doctype[^>]*>/i.exec(html);
+  return d ? html.slice(0, d.index + d[0].length) + STORAGE_SHIM + html.slice(d.index + d[0].length) : STORAGE_SHIM + html;
+}

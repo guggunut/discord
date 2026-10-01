@@ -31,3 +31,11 @@ test("project zips open with a standard unzip tool", () => {
 test("every web template has an index page", () => {
   for (const t of TEMPLATES.filter((t) => t.id !== "roblox")) assert.ok(t.files["index.html"], t.id);
 });
+
+test("previews get a storage stand-in right after <head>", async () => {
+  const { withStorageShim } = await import("../src/server/workspace.ts");
+  const out = withStorageShim("<!doctype html><html><head><title>x</title></head><body></body></html>");
+  assert.match(out, /<head><script>\(function\(\)\{function S/);
+  assert.ok(out.indexOf("localStorage") < out.indexOf("<title>"));
+  assert.match(withStorageShim("<p>hi</p>"), /^<script>/);
+});
