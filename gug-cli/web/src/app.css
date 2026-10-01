@@ -108,3 +108,5 @@ kbd{display:inline-block;min-width:18px;padding:1px 5px;border-radius:5px;border
 
 /* Top-bar popovers (focus timer, now playing) sit above page content like the 3D core. */
 .topbar{position:relative;z-index:40}
+.seg{max-width:100%}
+@media (max-width:700px){.seg button{font-size:12px;padding:0 4px}}

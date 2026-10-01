@@ -140,7 +140,7 @@ export function Apps() {
         </Tile>
       </div>
 
-      <div className="g2r" style={{ gridTemplateColumns: "minmax(0,1fr) 380px" }}>
+      <div className="g2r cols" style={{ ["--cols" as string]: "minmax(0,1fr) 380px" }}>
         <div className="card rise d3" style={{ padding: 22 }}>
           <div className="row" style={{ marginBottom: 14 }}>
             <Brand name="github" size={40} variant={s.github.connected ? "white" : "tint"} />

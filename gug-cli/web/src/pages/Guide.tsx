@@ -107,7 +107,7 @@ export function Guide() {
         </div>
       </div>
 
-      <div className="g2r" style={{ gridTemplateColumns: "minmax(0,1fr) 400px" }}>
+      <div className="g2r cols" style={{ ["--cols" as string]: "minmax(0,1fr) 400px" }}>
         <section className="card rise d3" style={{ padding: 28, minHeight: 520, display: "flex", flexDirection: "column" }}>
           <div style={{ flexGrow: 1 }}>
             {step === 1 && (
@@ -194,7 +194,7 @@ export function Guide() {
               <div className="tx-zoom">
                 <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Pick an AI to start with</h2>
                 <p className="muted" style={{ margin: "6px 0 16px", fontSize: 14 }}>Each one has a clear job. Choose its engine — you can change it later.</p>
-                <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 240px", gap: 18 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 18 }}>
                   <div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
                       {TEMPLATES.map(([id, name, role]) => (

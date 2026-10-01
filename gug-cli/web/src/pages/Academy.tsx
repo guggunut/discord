@@ -54,7 +54,7 @@ export function Academy() {
         <Seg label="Category" value={cat} onChange={setCat} width={560} options={CATS} />
         <span className="mono muted" style={{ fontSize: 11 }}>HOVER A CARD TO FLIP IT</span>
       </div>
-      <div className="g2r" style={{ gridTemplateColumns: "minmax(0,1fr) 420px" }}>
+      <div className="g2r cols" style={{ ["--cols" as string]: "minmax(0,1fr) 420px" }}>
         <section key={cat} className="tx-blinds" style={{ minWidth: 0, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 16, alignContent: "start" }}>
           {list.map((c, i) => (
             <button key={c.id} type="button" className="flip rise" aria-label={`Open playbook: ${c.title}`} onClick={() => setSel(c.id)} style={{ height: 236, animationDelay: `${i * 0.05}s` }}>
