@@ -3,6 +3,7 @@ import { api, stream, type GugEvent } from "../api";
 import { useApp } from "../App";
 import { play } from "../sfx";
 import { ShortsLab } from "../Shorts";
+import { BeatsLab } from "../Beats";
 import { Icon, P, Seg, Sigil } from "../ui";
 
 interface Art { id: string; title: string; prompt: string; style: string; at: string; bytes: number }
@@ -12,7 +13,7 @@ const src = (id: string) => `/api/studio/art/${id}`;
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "artwork";
 
 export function Studio() {
-  const [tab, setTab] = useState<"image" | "voice" | "shorts">(() => (localStorage.getItem("gug-studio-prompt") ? "image" : (localStorage.getItem("gug-studio-tab") as "voice") || "image"));
+  const [tab, setTab] = useState<"image" | "voice" | "shorts" | "beats">(() => (localStorage.getItem("gug-studio-prompt") ? "image" : (localStorage.getItem("gug-studio-tab") as "voice") || "image"));
   useEffect(() => {
     try {
       localStorage.setItem("gug-studio-tab", tab);
@@ -23,9 +24,9 @@ export function Studio() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <div className="row rise d1">
-        <Seg label="Studio" value={tab} width={480} options={[["image", "Artwork · Muse"], ["shorts", "Shorts · video"], ["voice", "Voice · Vox"]]} onChange={setTab} />
+        <Seg label="Studio" value={tab} width={600} options={[["image", "Artwork · Muse"], ["shorts", "Shorts · video"], ["beats", "Beats · audio"], ["voice", "Voice · Vox"]]} onChange={setTab} />
       </div>
-      <div key={tab} className={tab === "image" ? "tx-zoom" : tab === "shorts" ? "tx-iris" : "tx-flip"}>{tab === "image" ? <ImageLab /> : tab === "shorts" ? <ShortsLab /> : <VoiceLab />}</div>
+      <div key={tab} className={tab === "image" ? "tx-zoom" : tab === "shorts" ? "tx-iris" : tab === "beats" ? "tx-skew" : "tx-flip"}>{tab === "image" ? <ImageLab /> : tab === "shorts" ? <ShortsLab /> : tab === "beats" ? <BeatsLab /> : <VoiceLab />}</div>
     </div>
   );
 }

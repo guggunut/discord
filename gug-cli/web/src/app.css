@@ -110,3 +110,15 @@ kbd{display:inline-block;min-width:18px;padding:1px 5px;border-radius:5px;border
 .topbar{position:relative;z-index:40}
 .seg{max-width:100%}
 @media (max-width:700px){.seg button{font-size:12px;padding:0 4px}}
+
+/* Beats sequencer */
+.beat-grid{display:flex;flex-direction:column;gap:8px;min-width:680px}
+.beat-row{display:grid;grid-template-columns:70px repeat(16,minmax(0,1fr));gap:6px;align-items:center}
+.beat-label{font-size:11px;color:#A1A1AA;letter-spacing:.06em}
+.beat-cell{height:40px;border-radius:9px;border:1px solid rgba(255,255,255,.08);background:#0B0B0D;cursor:pointer;transition:background .15s,transform .15s,box-shadow .2s}
+.beat-cell.bar{border-color:rgba(255,255,255,.16)}
+.beat-cell:hover{background:#151518}
+.beat-cell.on{background:linear-gradient(180deg,#FF3B4A,#B00016);border-color:#FF2B3A;box-shadow:0 0 14px -2px rgba(255,43,58,.8)}
+.beat-cell.on.bass{background:linear-gradient(180deg,#F4F4F5,#A1A1AA);border-color:#fff;box-shadow:0 0 14px -4px rgba(255,255,255,.8)}
+.beat-cell.now{outline:2px solid rgba(255,255,255,.65);outline-offset:1px}
+.beat-cell.on.now{transform:scale(1.08)}

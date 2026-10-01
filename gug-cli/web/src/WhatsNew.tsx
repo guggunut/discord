@@ -7,7 +7,7 @@ export const VERSION = "0.2.0";
 const ITEMS: [Route, string, string, string][] = [
   ["ventures", "Ventures", "Ventures", "Track every store, game and product — charts, a monthly goal, Shopify CSV import, live Roblox player stats and a Ledger review."],
   ["markets", "Markets", "Markets", "Live watchlist, charts, headlines, price alerts and a $10k paper-trading account. Quant explains — never advises."],
-  ["studio", "Studio", "Studio", "Muse draws vector art, the Shorts maker turns it into 9:16 videos with captions and a beat, and Vox writes and reads voiceovers."],
+  ["studio", "Studio", "Studio", "Muse draws vector art, Beats is a 16-step drum machine, the Shorts maker turns art + captions + your beat into 9:16 videos, and Vox does voiceovers."],
   ["growth", "Growth", "Growth", "A content calendar Echo can fill, one-click Discord posts, and when your posts do best."],
   ["agents", "Agents", "Agents with tools", "Agents now read and act on your data (with your say-so), share a memory of you, and offer starter prompts."],
   ["command", "Command", "Team mode + voice", "Atlas hands tasks to the right agents and wraps up. Speak instead of typing. A live Today briefing."],

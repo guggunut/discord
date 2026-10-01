@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, stream, type GugEvent } from "./api";
 import { useApp } from "./App";
 import { toLines } from "./captions";
+import { savedBeat, schedule, stepSeconds } from "./beats";
 import { play } from "./sfx";
 import { Icon, P, Seg, Sigil, Switch } from "./ui";
 
@@ -179,7 +180,15 @@ export function ShortsLab() {
     if (music) {
       ac = new AudioContext();
       const dest = ac.createMediaStreamDestination();
-      startBeat(ac, dest, total);
+      const mine = savedBeat();
+      if (mine) {
+        // Your beat from Studio → Beats, looped for the length of the video.
+        const mix = ac.createGain();
+        mix.gain.value = 0.7;
+        mix.connect(dest);
+        mix.connect(ac.destination);
+        schedule(ac, mix, mine, ac.currentTime + 0.05, Math.ceil(total / (16 * stepSeconds(mine))));
+      } else startBeat(ac, dest, total);
       dest.stream.getAudioTracks().forEach((tr) => streamV.addTrack(tr));
     }
     const type = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
@@ -245,7 +254,7 @@ export function ShortsLab() {
               <input type="range" className="scrub" min={1.5} max={4} step={0.5} value={secs} onChange={(e) => setSecs(Number(e.target.value))} style={{ ["--p" as string]: `${((secs - 1.5) / 2.5) * 100}%`, marginTop: 14 }} />
             </label>
             <label className="row" style={{ gap: 8, fontSize: 13 }}>
-              <Switch on={music} label="Synth beat" onChange={setMusic} /> Synth beat
+              <Switch on={music} label="Music" onChange={setMusic} /> {savedBeat() ? `Your beat (${savedBeat()!.name})` : "Synth beat"}
             </label>
           </div>
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
