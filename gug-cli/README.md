@@ -1,6 +1,6 @@
 # GUG-cli
 
-**Your agents. Your keys.** GUG-cli is an agentic OS that runs on your own computer: twelve specialist AI agents, a vibe-coding studio, a multi-agent "roundtable", app connections and a now-playing media player — in a black, white and signal-red interface with 3D, sound and motion.
+**Your agents. Your keys.** GUG-cli is an agentic OS that runs on your own computer: twelve specialist AI agents, a vibe-coding studio, a multi-agent "roundtable", money and market tracking, an art and voice studio, a content calendar, automations and a now-playing media player — in a black, white and signal-red interface with 3D, sound and motion.
 
 It uses **Claude** for thinking and writing, **Claude Code** for real coding inside your projects, and optionally a **local model** (Ollama / LM Studio) — and picks the right one per task.
 
@@ -18,7 +18,7 @@ npm link          # makes the `gug` command available everywhere (optional)
 gug serve         # or: node bin/gug.mjs serve
 ```
 
-`gug serve` opens your browser on a **private link** (`http://127.0.0.1:4747/#token=…`). That link is how GUG-cli knows it's you — keep it to yourself. Lost it? Run `gug link`.
+`gug serve` opens GUG-cli in its own app window (Edge, Chrome or Brave; `--tab` for a normal browser tab) on a **private link** (`http://127.0.0.1:4747/#token=…`). That link is how GUG-cli knows it's you — keep it to yourself. Lost it? Run `gug link`.
 
 Then follow the **Setup guide** in the app (the plug icon), or:
 
@@ -47,14 +47,21 @@ Restart `gug serve` and the Code tab and Forge will use it automatically.
 
 | Screen | What it does |
 | --- | --- |
-| **Command center** | Pick agents and message them all. One agent = direct chat; several = they take turns, build on each other, and Atlas sums up. Drag the 3D core to spin it, click to pulse; modes change its shape. |
+| **Command center** | Pick agents and message them all. One agent = direct chat; several = they take turns, build on each other, and Atlas sums up. Drag the 3D core to spin it, click to pulse; modes change its shape. The **Today** panel is a live briefing: new inbox items, today's posts, profit, market movers and the next automation. |
 | **Agent room** | Twelve agents (Atlas, Ledger, Quant, Muse, Echo, Relay, Scout, Forge, Vox, Tempo, Sage, Sentinel), each with its own chat history and engine setting. |
 | **Code** | Vibe coding: describe what you want, Forge builds it. *Claude Code* works inside the project folder; *Claude API* writes complete files. Live sandboxed preview, file editor, build log. |
 | **Apps** | Claude API, Claude Code, GitHub (list + clone repos into Code), Discord alerts, local models. |
+| **Ventures** | Income tracker for stores, Roblox games (entered in R$, converted at your DevEx rate) and digital products: sales, costs, refunds, KPIs vs the previous period, charts, and a Ledger review of the numbers. Sample data to explore. |
+| **Markets** | Watchlist with live quotes (Yahoo Finance for stocks/funds, CoinGecko for crypto — public feeds, may be delayed), interactive charts with range stats, price alerts to your inbox, a $10,000 **paper-trading** account, and Quant explaining charts in plain English. Never real trades, never advice. |
+| **Studio** | Muse draws vector artwork (sanitised SVG, export SVG or 2048px PNG, drop into a Code project, hand to Echo for captions). Vox writes voiceover scripts and reads them with your computer's built-in voices. |
+| **Growth** | Weekly content calendar for Instagram, TikTok, YouTube, X and Discord. Echo plans a week of drafts and rewrites captions; approve, post to Discord in one click, log views and likes. |
+| **Flows** | Automations: run one or more agents on a schedule (daily, every N minutes) or on demand, each step seeing the last, delivered to your inbox or Discord. |
 | **Academy** | Eight playbooks (AI dropshipping, AI-assisted investing, Roblox income, faceless channels and more) with progress tracking and a button to run the next step with the right agents. |
 | **Setup guide** | Five interactive steps from zero to your first agent job. |
-| **Settings** | Encrypted API keys (with backup keys), engine routing, Claude Code permissions, sound & motion. |
+| **Settings** | Encrypted API keys (with backup keys), engine routing, Claude Code permissions, sound & motion, desktop notifications, and backup/restore (never includes keys). |
 | **Now playing** | Shows and controls whatever music is playing on your computer. |
+
+**Anywhere:** press **Ctrl/⌘ + K** (or `/`) for the command palette — jump to any screen, run quick actions, or type a question and it's routed to the agent whose speciality fits (a tax question goes to Ledger, a logo to Muse). On narrow windows a bottom bar replaces the side rail.
 
 ### Engines and the router
 
@@ -76,7 +83,7 @@ Restart `gug serve` and the Code tab and Forge will use it automatically.
 ## Command line
 
 ```text
-gug serve [--port 4747] [--no-open]   Start the app
+gug serve [--port 4747] [--no-open] [--tab]   Start the app (own window by default)
 gug link                               Print your private link again
 gug key add | gug key remove           Save or delete your Claude API key
 gug chat [--agent atlas] [--mode deep] "…"
@@ -95,6 +102,9 @@ GUG-cli v1 has no accounts and no cloud. Instead:
 - Requests must come from `localhost` (blocks DNS-rebinding) and carry a custom header (blocks cross-site requests).
 - API keys and tokens are encrypted with AES-256-GCM using a key file (`vault.key`) readable only by your user.
 - Vibe-coded previews run in a sandboxed, opaque origin with no access to the app.
+- Generated artwork is stripped of scripts, event handlers and external links, and served with a sandboxing CSP.
+- Discord posts are sent with mentions disabled, so nothing can ping `@everyone`.
+- Only the numbers on screen are sent to Claude for Ledger/Quant reviews; market data comes from public feeds without any account.
 - Your data lives in `~/.gug-cli` (override with `GUG_DATA`). Delete that folder to wipe everything.
 
 ## Development
