@@ -1,5 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from "express";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENTS } from "./agents.js";
@@ -37,6 +37,7 @@ import { toolsFor } from "./tools.js";
 import { briefing } from "./today.js";
 import { addFact } from "./memory.js";
 import { coolingStatus, resetCooling } from "./engines/claude.js";
+import { TEMPLATES as PROJECT_TEMPLATES, templateById as projectTemplate, zip } from "./templates.js";
 import { chat, roundtable, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -184,6 +185,14 @@ export function createApp(store: Store) {
 
   // ---------- code ----------
   app.get("/api/projects", (_req, res) => res.json(listProjects()));
+  app.get("/api/templates", (_req, res) => res.json(PROJECT_TEMPLATES.map(({ id, name, blurb }) => ({ id, name, blurb }))));
+  app.get("/api/projects/:p/zip", (req, res) => {
+    const project = String(req.params.p);
+    const dir = projectDir(project);
+    const files = listFiles(dir).map((f) => ({ path: f.path, data: readFileSync(safeJoin(dir, f.path)) }));
+    res.set({ "content-type": "application/zip", "content-disposition": `attachment; filename="${project}.zip"` });
+    res.send(zip(files, project));
+  });
   app.get("/api/projects/:p/files", (req, res) => res.json(listFiles(projectDir(String(req.params.p)))));
   app.get("/api/projects/:p/file", (req, res) => res.json({ path: str(req.query.path, 200), content: readFile(projectDir(String(req.params.p)), str(req.query.path, 200)) }));
   app.put("/api/projects/:p/file", (req, res) => {
@@ -193,7 +202,9 @@ export function createApp(store: Store) {
   app.post("/api/projects", (req, res) => {
     const name = str(req.body?.name, 64).trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
     if (!name) throw new HttpError(400, "Give the project a name.");
-    projectDir(name, { create: true });
+    const dir = projectDir(name, { create: true });
+    const tpl = projectTemplate(str(req.body?.template, 20));
+    if (tpl && listFiles(dir).length === 0) for (const [rel, content] of Object.entries(tpl.files)) writeFile(dir, rel, content);
     res.json({ project: name });
   });
   app.post("/api/projects/:p/vibe", async (req, res) => {

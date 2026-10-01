@@ -33,6 +33,9 @@ interface Step {
 export function Code() {
   const { state, toast } = useApp();
   const [projects, setProjects] = useState<string[]>([]);
+  const [picking, setPicking] = useState(false);
+  const [templates, setTemplates] = useState<{ id: string; name: string; blurb: string }[]>([]);
+  const [tpl, setTpl] = useState("blank");
   const [project, setProject] = useState(() => localStorage.getItem("gug-project") ?? "playground");
   const [files, setFiles] = useState<{ path: string; size: number }[]>([]);
   const [file, setFile] = useState<string | null>(null);
@@ -61,6 +64,7 @@ export function Code() {
 
   useEffect(() => {
     api<string[]>("/api/projects").then(setProjects).catch(() => {});
+    api<{ id: string; name: string; blurb: string }[]>("/api/templates").then(setTemplates).catch(() => {});
     return () => abortRef.current();
   }, []);
   useEffect(() => {
@@ -100,7 +104,8 @@ export function Code() {
   const newProject = async () => {
     const name = newName.trim();
     if (!name) return;
-    const r = await api<{ project: string }>("/api/projects", { body: { name } });
+    const r = await api<{ project: string }>("/api/projects", { body: { name, template: tpl } });
+    setPicking(false);
     setProjects(await api<string[]>("/api/projects"));
     setProject(r.project);
     setNewName("");
@@ -158,14 +163,31 @@ export function Code() {
           </select>
         </label>
         <div style={{ display: "flex", gap: 6, padding: "0 8px 10px" }}>
-          <label className="sr" htmlFor="newproj">
-            New project name
-          </label>
-          <input id="newproj" className="field" style={{ height: 34, fontSize: 12, flexGrow: 1, minWidth: 0 }} placeholder="new-project" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && newProject()} />
-          <button type="button" className="btn iconbtn" style={{ width: 34, height: 34 }} aria-label="Create project" onClick={newProject}>
-            <Icon d={P.plus} size={14} />
+          <button type="button" className="btn" style={{ height: 34, fontSize: 12, flexGrow: 1 }} onClick={() => setPicking(true)}>
+            <Icon d={P.plus} size={13} /> New project
           </button>
+          <a className="btn iconbtn" href={`/api/projects/${project}/zip`} download aria-label={`Download ${project} as a zip`} title="Download as .zip" style={{ width: 34, height: 34 }}>
+            <Icon d={P.down} size={14} />
+          </a>
         </div>
+        {picking && (
+          <div className="tx-drop" style={{ margin: "0 8px 10px", padding: 10, borderRadius: 14, border: "1px solid rgba(255,43,58,0.4)", background: "rgba(255,43,58,0.05)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <label className="sr" htmlFor="newproj">New project name</label>
+            <input id="newproj" autoFocus className="field" style={{ height: 34, fontSize: 12 }} placeholder="project-name" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && newProject()} />
+            {templates.map((t) => (
+              <button key={t.id} type="button" className="listbtn" onClick={() => setTpl(t.id)} style={{ minHeight: 0, padding: "7px 8px", borderRadius: 10, alignItems: "flex-start", border: `1px solid ${tpl === t.id ? "rgba(255,43,58,0.6)" : "transparent"}`, background: tpl === t.id ? "rgba(255,43,58,0.1)" : undefined }}>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 12, fontWeight: 600 }}>{t.name}</span>
+                  <span className="muted" style={{ display: "block", fontSize: 11, lineHeight: 1.35 }}>{t.blurb}</span>
+                </span>
+              </button>
+            ))}
+            <div className="row" style={{ gap: 6 }}>
+              <button type="button" className="btn" style={{ height: 32, fontSize: 12, flexGrow: 1 }} onClick={() => setPicking(false)}>Cancel</button>
+              <button type="button" className="btn btn-red" style={{ height: 32, fontSize: 12, flexGrow: 1 }} disabled={!newName.trim()} onClick={newProject}>Create</button>
+            </div>
+          </div>
+        )}
         <div className="eyebrow" style={{ fontSize: 10, padding: "6px 8px" }}>
           Files
         </div>
