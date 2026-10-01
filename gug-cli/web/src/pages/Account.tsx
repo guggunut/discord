@@ -1,3 +1,5 @@
+import { AvatarEditor } from "../AvatarEditor";
+import { useAvatar } from "../avatars";
 import { useState } from "react";
 import { api } from "../api";
 import { useApp } from "../App";
@@ -7,6 +9,7 @@ export function Account() {
   const { state, refresh, toast } = useApp();
   const [name, setName] = useState(state.profile.name);
   const initial = (state.profile.name || "You").charAt(0).toUpperCase();
+  const me = useAvatar("you");
 
   const saveName = async () => {
     await api("/api/profile", { method: "PATCH", body: { name } });
@@ -29,14 +32,22 @@ export function Account() {
         <div className="stage" style={{ width: 132, height: 132, borderRadius: "50%", overflow: "visible" }}>
           <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid transparent", borderTopColor: "#FF2B3A", borderRightColor: "#FF2B3A", animation: "spinz 6s linear infinite", filter: "drop-shadow(0 0 6px #FF2B3A)" }} />
           <span style={{ position: "absolute", inset: 10, borderRadius: "50%", border: "1px dashed rgba(255,255,255,0.2)", animation: "spinz 18s linear infinite reverse" }} />
-          <span className="disp" style={{ width: 92, height: 92, borderRadius: "50%", display: "grid", placeItems: "center", fontSize: 34, color: "#050505", background: "#F4F4F5" }}>
-            {initial}
-          </span>
+          {me ? (
+            <img src={me} alt="" width={92} height={92} style={{ position: "relative", width: 92, height: 92, borderRadius: "50%", objectFit: "cover" }} />
+          ) : (
+            <span className="disp" style={{ width: 92, height: 92, borderRadius: "50%", display: "grid", placeItems: "center", fontSize: 34, color: "#050505", background: "#F4F4F5" }}>
+              {initial}
+            </span>
+          )}
         </div>
         <label className="label" style={{ width: "100%", textAlign: "left", marginTop: 6 }}>
           Your name
           <input className="field" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveName()} placeholder="What should the agents call you?" />
         </label>
+        <details style={{ width: "100%", textAlign: "left" }}>
+          <summary className="chip" style={{ cursor: "pointer", listStyle: "none", width: "fit-content" }}>Change picture</summary>
+          <div style={{ marginTop: 12 }}><AvatarEditor id="you" name="You" /></div>
+        </details>
         <button type="button" className="btn" style={{ width: "100%" }} onClick={saveName}>
           Save name
         </button>

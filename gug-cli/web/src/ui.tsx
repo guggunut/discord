@@ -1,3 +1,4 @@
+import { useAvatar } from "./avatars";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { getSfx, onSfxChange, setSfx } from "./sfx";
 
@@ -72,6 +73,13 @@ export const AGENT_META: Record<string, { sig: string; tone: string }> = {
 
 export function Sigil({ id, size = 36, glow = true }: { id: string; size?: number; glow?: boolean }) {
   const m = AGENT_META[id] ?? AGENT_META.you;
+  const pic = useAvatar(id);
+  if (pic)
+    return (
+      <span aria-hidden="true" style={{ flexShrink: 0, width: size, height: size, borderRadius: size * 0.3, overflow: "hidden", display: "block", border: `1px solid ${m.tone === RED ? "rgba(255,43,58,0.55)" : "rgba(255,255,255,0.22)"}`, boxShadow: glow ? `0 0 22px -8px ${m.tone}` : undefined, background: "#0A0A0B" }}>
+        <img src={pic} alt="" width={size} height={size} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+      </span>
+    );
   return (
     <span aria-hidden="true" style={{ flexShrink: 0, width: size, height: size, borderRadius: size * 0.3, display: "grid", placeItems: "center", background: "#0A0A0B", border: "1px solid rgba(255,255,255,0.12)", boxShadow: glow ? `0 0 22px -8px ${m.tone}` : undefined }}>
       <Icon d={m.sig} size={size * 0.5} color={m.tone} sw={1.6} />
@@ -171,6 +179,7 @@ export function Logo({ size = 30 }: { size?: number }) {
 }
 
 export function Rail({ route, initial }: { route: Route; initial: string }) {
+  const me = useAvatar("you");
   const link = (r: Route, label: string, icon: string) => (
     <a key={r} href={`#/${r}`} className={route === r ? "on" : undefined} aria-current={route === r ? "page" : undefined} aria-label={label} data-tip={label}>
       <Icon d={P[icon]} size={20} sw={1.6} />
@@ -185,9 +194,13 @@ export function Rail({ route, initial }: { route: Route; initial: string }) {
       <div style={{ flexGrow: 1, minHeight: 12 }} />
       {link("settings", "Settings", "Settings")}
       <a href="#/account" aria-label="Account" data-tip="Account" className={route === "account" ? "on" : undefined} style={{ marginTop: 6, borderRadius: "50%" }}>
-        <span className="disp" style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", fontSize: 13, color: "#050505", background: WHITE, boxShadow: `0 0 0 2px #030303, 0 0 0 3.5px ${RED}` }}>
-          {initial}
-        </span>
+        {me ? (
+          <img src={me} alt="" width={36} height={36} style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", display: "block", boxShadow: `0 0 0 2px #030303, 0 0 0 3.5px ${RED}` }} />
+        ) : (
+          <span className="disp" style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", fontSize: 13, color: "#050505", background: WHITE, boxShadow: `0 0 0 2px #030303, 0 0 0 3.5px ${RED}` }}>
+            {initial}
+          </span>
+        )}
       </a>
     </nav>
   );

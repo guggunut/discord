@@ -18,6 +18,7 @@ import { Notifier } from "./Notifier";
 import { Shortcuts } from "./Shortcuts";
 import { FocusEngine, FocusPill } from "./Focus";
 import { WhatsNew } from "./WhatsNew";
+import { setAvatars } from "./avatars";
 import { Markets } from "./pages/Markets";
 import { Studio } from "./pages/Studio";
 import { Growth } from "./pages/Growth";
@@ -63,7 +64,9 @@ export function App() {
 
   const refresh = useCallback(async () => {
     try {
-      setState(await api<State>("/api/state"));
+      const st = await api<State>("/api/state");
+      setAvatars(st.avatars);
+      setState(st);
       setLocked(false);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) setLocked(true);

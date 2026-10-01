@@ -43,6 +43,7 @@ import { ask, bearer, createToken, listTokens } from "./integrations.js";
 import { parsePlaceId, recordSnapshot, robloxStats, universeFor } from "./roblox.js";
 import { connectShopify, disconnectShopify, syncShopify } from "./shopify.js";
 import { deployProject, vercelUser } from "./vercel.js";
+import { avatarVersions, readAvatar, removeAvatar, saveAvatar } from "./avatars.js";
 import { chat, roundtable, team, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -123,9 +124,20 @@ export function createApp(store: Store) {
       dataDir: config.dataDir,
       previewKey: previewKey(),
       address: `${config.host}:${config.port}`,
+      avatars: avatarVersions(store),
     });
   });
 
+  app.get("/api/agents/:id/avatar", (req, res) => {
+    const a = readAvatar(store, String(req.params.id));
+    res.set({ "content-type": a.type, "content-security-policy": "default-src 'none'; sandbox", "cache-control": "private, max-age=31536000, immutable" });
+    res.send(a.body);
+  });
+  app.put("/api/agents/:id/avatar", (req, res) => res.json({ v: saveAvatar(store, String(req.params.id), req.body?.image) }));
+  app.delete("/api/agents/:id/avatar", (req, res) => {
+    removeAvatar(store, String(req.params.id));
+    res.json({ ok: true });
+  });
   app.patch("/api/profile", (req, res) => {
     const name = str(req.body?.name, 40).trim();
     if (name) store.data.profile.name = name;
@@ -745,7 +757,7 @@ export function createApp(store: Store) {
   }
   if (web) {
     app.use((_req, res, next) => {
-      res.set("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+      res.set("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
       next();
     });
     app.use(express.static(web, { index: "index.html", maxAge: "1h" }));

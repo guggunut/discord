@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { api, stream, type AgentInfo, type Engine, type GugEvent } from "../api";
 import { useApp } from "../App";
 import { Md } from "../Md";
+import { AvatarEditor } from "../AvatarEditor";
+import { useAvatar } from "../avatars";
 import { play } from "../sfx";
 import { AGENT_META, Icon, P, Seg, Sigil, Switch } from "../ui";
 
@@ -119,6 +121,7 @@ export function Agents() {
   };
 
   const tone = AGENT_META[cur]?.tone ?? "#F4F4F5";
+  const pic = useAvatar(cur);
   const engineLabel = (e: Engine) => ({ auto: "Auto", claude: "Claude", code: "Claude Code", local: "Local" })[e];
 
   return (
@@ -162,9 +165,13 @@ export function Agents() {
               <div className="stage" style={{ width: 104, height: 104, borderRadius: "50%", overflow: "visible", flexShrink: 0 }}>
                 <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.12)", borderTopColor: tone, animation: "spinz 14s linear infinite" }} />
                 <span style={{ position: "absolute", inset: 12, borderRadius: "50%", border: "1px dashed rgba(255,255,255,0.2)", animation: "spinz 22s linear infinite reverse" }} />
-                <span style={{ width: 58, height: 58, borderRadius: 18, display: "grid", placeItems: "center", background: "#0A0A0B", border: "1px solid rgba(255,255,255,0.16)", boxShadow: `0 0 46px -8px ${tone}`, transform: "rotate(45deg)" }}>
-                  <Icon d={AGENT_META[cur]?.sig ?? P.Agents} size={26} color={tone} sw={1.5} style={{ transform: "rotate(-45deg)" }} />
-                </span>
+                {pic ? (
+                  <img src={pic} alt="" width={70} height={70} style={{ position: "relative", width: 70, height: 70, borderRadius: "50%", objectFit: "cover", border: `1px solid ${tone}`, boxShadow: `0 0 46px -8px ${tone}` }} />
+                ) : (
+                  <span style={{ width: 58, height: 58, borderRadius: 18, display: "grid", placeItems: "center", background: "#0A0A0B", border: "1px solid rgba(255,255,255,0.16)", boxShadow: `0 0 46px -8px ${tone}`, transform: "rotate(45deg)" }}>
+                    <Icon d={AGENT_META[cur]?.sig ?? P.Agents} size={26} color={tone} sw={1.5} style={{ transform: "rotate(-45deg)" }} />
+                  </span>
+                )}
               </div>
               <div style={{ flexGrow: 1, minWidth: 220 }}>
                 <div className="row" style={{ flexWrap: "wrap" }}>
@@ -284,6 +291,10 @@ export function Agents() {
 
             {tab === "settings" && (
               <div className="tx-blinds" style={{ paddingTop: 18, display: "flex", flexDirection: "column", gap: 18 }}>
+                <div>
+                  <div className="eyebrow" style={{ fontSize: 10, marginBottom: 10 }}>Profile picture</div>
+                  <AvatarEditor id={a.id} name={a.name} />
+                </div>
                 <div>
                   <div className="eyebrow" style={{ fontSize: 10, marginBottom: 8 }}>
                     Engine

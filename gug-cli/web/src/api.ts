@@ -61,6 +61,7 @@ export function stream(path: string, body: unknown, onEvent: (e: GugEvent) => vo
 }
 
 export interface State {
+  avatars?: Record<string, number>;
   profile: { name: string; createdAt: string };
   prefs: { engine: Engine; codePermission: "acceptEdits" | "plan"; localUrl: string; localModel: string; agents: Record<string, { engine?: Engine; autonomy?: string; enabled?: boolean }> };
   engines: { claudeCode: { ok: boolean; version: string }; claudeKeys: number; local: boolean };
