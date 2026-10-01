@@ -14,6 +14,7 @@ interface Entry { id: string; streamId: string; date: string; type: "sale" | "co
 interface Kpi { value: number; change: number | null }
 interface Summary {
   currency: "GBP" | "USD" | "EUR";
+  month: { profit: number; goal: number | null; dayOfMonth: number; daysInMonth: number };
   range: Range;
   from: string;
   to: string;
@@ -131,7 +132,9 @@ export function Ventures() {
           <>
             <div className="k4">
               <KpiCard i={0} label="Revenue" value={money(s.kpis.revenue.value)} change={s.kpis.revenue.change} />
-              <KpiCard i={1} label="Net profit" value={money(s.kpis.profit.value)} change={s.kpis.profit.change} hot />
+              <KpiCard i={1} label="Net profit" value={money(s.kpis.profit.value)} change={s.kpis.profit.change} hot>
+                <Goal month={s.month} money={money} onSet={(goal) => void act(() => api("/api/ventures/goal", { method: "PUT", body: { goal } }), goal ? "Goal set." : "Goal cleared.")} />
+              </KpiCard>
               <KpiCard i={2} label="Orders" value={s.kpis.orders.value.toLocaleString()} change={s.kpis.orders.change} />
               <KpiCard i={3} label="Avg margin" value={`${s.kpis.margin.value}%`} change={s.kpis.margin.change} unit="pts" />
             </div>
@@ -246,7 +249,37 @@ function Change({ v, unit = "%" }: { v: number | null; unit?: string }) {
   );
 }
 
-function KpiCard({ label, value, change, hot, i, unit }: { label: string; value: string; change: number | null; hot?: boolean; i: number; unit?: string }) {
+function Goal({ month, money, onSet }: { month: Summary["month"]; money: (n: number) => string; onSet: (goal: number) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(month.goal ? String(month.goal) : "");
+  if (editing || !month.goal)
+    return editing ? (
+      <form className="row" style={{ gap: 6, marginTop: 8 }} onSubmit={(e) => (e.preventDefault(), setEditing(false), onSet(Number(val) || 0))}>
+        <input aria-label="Monthly profit goal" className="field mono" autoFocus inputMode="numeric" value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9]/g, ""))} placeholder="e.g. 1000" style={{ height: 30, fontSize: 12, minWidth: 0, flexGrow: 1 }} />
+        <button type="submit" className="chip" style={{ height: 30 }}>Set</button>
+      </form>
+    ) : (
+      <button type="button" className="chip" style={{ marginTop: 8, height: 24, fontSize: 11 }} onClick={() => setEditing(true)}>
+        <Icon d={P.plus} size={10} /> Monthly goal
+      </button>
+    );
+  const pct = Math.max(0, Math.min(1, month.profit / month.goal));
+  const pace = month.dayOfMonth / month.daysInMonth;
+  return (
+    <button type="button" onClick={() => setEditing(true)} title="Change goal" style={{ display: "block", width: "100%", marginTop: 10, padding: 0, border: 0, background: "transparent", textAlign: "left" }}>
+      <span className="row mono" style={{ fontSize: 10, justifyContent: "space-between", color: "#A1A1AA" }}>
+        <span>THIS MONTH {money(month.profit)} / {money(month.goal)}</span>
+        <span style={{ color: pct >= pace ? "#F4F4F5" : "#FF5A66" }}>{pct >= 1 ? "HIT ✓" : pct >= pace ? "ON PACE" : "BEHIND"}</span>
+      </span>
+      <span style={{ position: "relative", display: "block", height: 5, marginTop: 6, borderRadius: 4, background: "rgba(255,255,255,0.08)" }}>
+        <span style={{ position: "absolute", inset: "0 auto 0 0", width: `${pct * 100}%`, borderRadius: 4, background: "#FF2B3A", boxShadow: "0 0 10px #FF2B3A", transformOrigin: "left", animation: "growx 1s .3s cubic-bezier(.2,.8,.2,1) both" }} />
+        <span title="Where you'd be on an even pace" style={{ position: "absolute", left: `${pace * 100}%`, top: -3, bottom: -3, width: 2, background: "#F4F4F5", opacity: 0.7 }} />
+      </span>
+    </button>
+  );
+}
+
+function KpiCard({ label, value, change, hot, i, unit, children }: { label: string; value: string; change: number | null; hot?: boolean; i: number; unit?: string; children?: React.ReactNode }) {
   return (
     <section className={`card tilt rise ${hot ? "hot" : ""}`} style={{ padding: "16px 18px", animationDelay: `${0.15 + i * 0.07}s` }}>
       <div className="row">
@@ -255,6 +288,7 @@ function KpiCard({ label, value, change, hot, i, unit }: { label: string; value:
       </div>
       <div className="disp" style={{ fontSize: 30, fontWeight: 300, marginTop: 8, color: hot ? "#FF2B3A" : undefined }}>{value}</div>
       <div className="muted" style={{ fontSize: 11 }}>vs previous period</div>
+      {children}
     </section>
   );
 }

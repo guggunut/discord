@@ -34,6 +34,8 @@ export interface Entry {
 }
 export interface Ventures {
   currency: "GBP" | "USD" | "EUR";
+  /** Monthly profit target in the home currency. */
+  goal?: number;
   streams: Stream[];
   entries: Entry[];
 }
@@ -130,8 +132,17 @@ export function summarise(v: Ventures, range: Range, now = new Date()) {
     }
   }
   const margin = (t: Totals) => (t.revenue > 0 ? Math.round((t.profit / t.revenue) * 1000) / 10 : 0);
+  // Month to date, for the goal.
+  const monthStart = `${end.slice(0, 7)}-01`;
+  const month = zero();
+  for (const e of v.entries) {
+    const st = byId.get(e.streamId);
+    if (st && e.date >= monthStart && e.date <= end) add(month, e, st);
+  }
+  const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   return {
     currency: v.currency,
+    month: { profit: r2(month.profit), goal: v.goal ?? null, dayOfMonth: now.getDate(), daysInMonth: dim },
     range,
     from: start,
     to: end,

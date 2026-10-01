@@ -35,8 +35,23 @@ export function Command() {
     localStorage.removeItem("gug-prefill");
     return pf;
   });
-  const [lines, setLines] = useState<Line[]>([]);
   const [busy, setBusy] = useState(false);
+  // The channel survives reloads and screen changes (last 60 lines, this browser only).
+  const [lines, setLines] = useState<Line[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("gug-channel") ?? "[]");
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    if (busy) return;
+    try {
+      localStorage.setItem("gug-channel", JSON.stringify(lines.slice(-60)));
+    } catch {
+      /* storage full or private mode */
+    }
+  }, [lines, busy]);
   const [voice, setVoice] = useState(false);
   const recRef = useRef<{ stop: () => void } | null>(null);
   type Rec = { lang: string; interimResults: boolean; continuous: boolean; onresult: (e: { resultIndex: number; results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }> }) => void; onend: () => void; onerror: (e: { error: string }) => void; start: () => void; stop: () => void };
@@ -69,7 +84,7 @@ export function Command() {
   useEffect(() => () => recRef.current?.stop(), []);
   const abortRef = useRef<() => void>(() => {});
   const feedRef = useRef<HTMLDivElement>(null);
-  const idRef = useRef(1);
+  const idRef = useRef(Math.max(0, ...lines.map((l) => l.id)) + 1);
 
   useEffect(() => {
     api<AgentInfo[]>("/api/agents").then(setAgents).catch(() => {});

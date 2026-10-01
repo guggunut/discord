@@ -5,7 +5,7 @@ import { Icon, P, type Route } from "./ui";
 
 export const VERSION = "0.2.0";
 const ITEMS: [Route, string, string, string][] = [
-  ["ventures", "Ventures", "Ventures", "Track every store, game and product — sales, costs, refunds, charts, Shopify CSV import and a Ledger review."],
+  ["ventures", "Ventures", "Ventures", "Track every store, game and product — charts, a monthly goal, Shopify CSV import, live Roblox player stats and a Ledger review."],
   ["markets", "Markets", "Markets", "Live watchlist, charts, headlines, price alerts and a $10k paper-trading account. Quant explains — never advises."],
   ["studio", "Studio", "Studio", "Muse draws vector art, the Shorts maker turns it into 9:16 videos with captions and a beat, and Vox writes and reads voiceovers."],
   ["growth", "Growth", "Growth", "A content calendar Echo can fill, one-click Discord posts, and when your posts do best."],

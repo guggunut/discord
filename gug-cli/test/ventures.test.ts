@@ -47,6 +47,7 @@ test("summary converts Robux, nets costs and refunds, and compares periods", () 
   assert.equal(g.totals.revenue, 50);
   assert.equal(g.rawSales, 5000);
   assert.equal(g.change, null, "no previous data reads as new");
+  assert.deepEqual(s.month, { profit: 100, goal: null, dayOfMonth: 1, daysInMonth: 31 }, "only October so far");
 });
 
 test("long ranges bucket by week and month", () => {

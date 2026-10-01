@@ -341,6 +341,12 @@ export function createApp(store: Store) {
     store.save();
     res.json({ ok: true });
   });
+  app.put("/api/ventures/goal", (req, res) => {
+    const g = Number(req.body?.goal);
+    v().goal = g > 0 && g < 1e9 ? Math.round(g) : undefined;
+    store.save();
+    res.json({ goal: v().goal ?? null });
+  });
   app.post("/api/ventures/streams", (req, res) => {
     if (v().streams.length >= 30) throw new HttpError(400, "That's a lot of streams — remove one first.");
     const s = validateStream(req.body);
