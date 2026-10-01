@@ -83,6 +83,7 @@ export interface AgentInfo {
   enabled: boolean;
   last: string | null;
   messages: number;
+  tools: { label: string; writes: boolean; description: string }[];
 }
 
 export interface NowPlaying {

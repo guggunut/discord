@@ -250,6 +250,18 @@ export function Agents() {
                     {t}
                   </div>
                 ))}
+                {a.tools.length > 0 && (
+                  <div className="card" style={{ padding: "14px 16px", borderRadius: 14 }}>
+                    <div className="eyebrow" style={{ fontSize: 10, marginBottom: 10 }}>What {a.name} can do in GUG-cli</div>
+                    {a.tools.map((t) => (
+                      <div key={t.label} className="row" style={{ gap: 10, padding: "5px 0", fontSize: 13 }} title={t.description}>
+                        <Icon d={t.writes ? P.wand : P.search} size={14} color={t.writes ? "#FF2B3A" : "#A1A1AA"} />
+                        <span style={{ flexGrow: 1 }}>{t.label}</span>
+                        <span className="mono muted" style={{ fontSize: 9 }}>{t.writes ? "CHANGES" : "READS"}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>
                   {a.messages} messages saved · stored only on this computer
                 </p>
@@ -269,9 +281,12 @@ export function Agents() {
                 </div>
                 <div>
                   <div className="eyebrow" style={{ fontSize: 10, marginBottom: 8 }}>
-                    Autonomy
+                    Access to your data
                   </div>
-                  <Seg label="Autonomy" value={a.autonomy} onChange={(v) => void save({ autonomy: v })} width={360} options={[["ask", "Ask first"], ["spend", "Ask > $20"], ["full", "Full auto"]]} />
+                  <Seg label="Access to your data" value={a.autonomy} onChange={(v) => void save({ autonomy: v })} width={420} options={[["off", "No access"], ["read", "Read only"], ["ask", "Can make changes"]]} />
+                  <p className="muted" style={{ margin: "8px 0 0", fontSize: 12 }}>
+                    {a.autonomy === "off" ? `${a.name} only sees what you type.` : a.autonomy === "read" ? `${a.name} can look at your GUG-cli data but never change it.` : `${a.name} can look at your data and make small, undoable changes when you ask — like logging a sale or drafting a post. Every action shows in the chat.`}
+                  </p>
                 </div>
                 <div className="row" style={{ fontSize: 14 }}>
                   <span style={{ flexGrow: 1 }}>Show in the Command center</span>

@@ -33,6 +33,7 @@ import { paperTrade, parseSymbol, quantRead, quote, setAlert, stats, type AssetK
 import { STYLES, deleteArt, drawWithMuse, readArt, scriptWithVox } from "./studio.js";
 import { PLATFORMS, draftCaption, growthStats, planWeek, publishToDiscord, validatePost, type Platform } from "./growth.js";
 import { makeBackup, restoreBackup } from "./backup.js";
+import { toolsFor } from "./tools.js";
 import { chat, roundtable, vibeWithClaude } from "./router.js";
 import type { Store } from "./store.js";
 import { listFiles, listProjects, projectDir, readFile, safeJoin, writeFile } from "./workspace.js";
@@ -129,7 +130,7 @@ export function createApp(store: Store) {
         if (!AGENTS.some((a) => a.id === id) || !cfg) continue;
         const cur = (prefs.agents[id] ??= {});
         if (cfg.engine) cur.engine = asEngine(cfg.engine);
-        if (["ask", "spend", "full"].includes(cfg.autonomy)) cur.autonomy = cfg.autonomy;
+        if (["off", "read", "ask"].includes(cfg.autonomy)) cur.autonomy = cfg.autonomy;
         if (typeof cfg.enabled === "boolean") cur.enabled = cfg.enabled;
       }
     }
@@ -155,7 +156,9 @@ export function createApp(store: Store) {
       AGENTS.map((a) => {
         const h = store.data.chats[a.id] ?? [];
         const cfg = store.data.prefs.agents[a.id] ?? {};
-        return { id: a.id, name: a.name, role: a.role, category: a.category, engine: cfg.engine ?? a.engine, autonomy: cfg.autonomy ?? "ask", enabled: cfg.enabled ?? true, last: h.at(-1)?.content.slice(0, 140) ?? null, messages: h.length };
+        const autonomy = ["off", "read", "ask"].includes(cfg.autonomy as string) ? cfg.autonomy : "ask";
+        const tools = toolsFor(store, a.id).map((t) => ({ label: t.label, writes: !!t.writes, description: t.def.description }));
+        return { id: a.id, name: a.name, role: a.role, category: a.category, engine: cfg.engine ?? a.engine, autonomy, enabled: cfg.enabled ?? true, last: h.at(-1)?.content.slice(0, 140) ?? null, messages: h.length, tools };
       }),
     );
   });

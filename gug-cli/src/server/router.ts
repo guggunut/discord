@@ -6,6 +6,7 @@ import { runLocal } from "./engines/local.js";
 import type { GugEvent } from "./events.js";
 import { claudeKeys } from "./local.js";
 import type { Store } from "./store.js";
+import { TOOL_SYSTEM, toolsFor } from "./tools.js";
 import { parseFileBlocks, projectDir, VIBE_SYSTEM, writeFile } from "./workspace.js";
 
 const CODE_WORDS = /\b(fix|refactor|test|tests|bug|build|compile|commit|repo|repository|function|component|endpoint|deploy|lint|typescript|python|javascript|code)\b/i;
@@ -61,7 +62,8 @@ export async function* chat(store: Store, input: ChatInput): AsyncGenerator<GugE
   } else if (engine === "local") {
     source = runLocal({ url: prefs.localUrl, model: prefs.localModel, system: systemFor(agent), messages: [...past, { role: "user", content: input.text }], signal: input.signal, agent: agent.id });
   } else {
-    source = runClaude({ keys: claudeKeys(store), system: systemFor(agent), messages: [...past, { role: "user", content: input.text }], mode: input.mode, agent: agent.id, signal: input.signal });
+    const tools = toolsFor(store, agent.id);
+    source = runClaude({ keys: claudeKeys(store), system: tools.length ? `${systemFor(agent)}\n\n${TOOL_SYSTEM}\nToday is ${new Date().toDateString()}.` : systemFor(agent), messages: [...past, { role: "user", content: input.text }], mode: input.mode, agent: agent.id, signal: input.signal, tools });
   }
 
   for await (const ev of source) {

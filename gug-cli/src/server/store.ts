@@ -14,7 +14,7 @@ export interface Prefs {
   codePermission: "acceptEdits" | "plan";
   localUrl: string;
   localModel: string;
-  agents: Record<string, { engine?: EngineId; autonomy?: "ask" | "spend" | "full"; enabled?: boolean }>;
+  agents: Record<string, { engine?: EngineId; autonomy?: "off" | "read" | "ask"; enabled?: boolean }>;
 }
 
 export interface ChatMessage {

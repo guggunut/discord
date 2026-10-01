@@ -43,6 +43,7 @@ test("local model URLs must be loopback", () => {
 // ---- fallback chain against a fake Messages API ----
 let server: Server;
 const seen: string[] = [];
+const toolRequests: string[][] = [];
 before(async () => {
   server = createServer((req, res) => {
     let body = "";
@@ -57,6 +58,29 @@ before(async () => {
       res.writeHead(200, { "content-type": "text/event-stream" });
       const send = (event: string, data: object) => res.write(`event: ${event}\ndata: ${JSON.stringify({ type: event, ...data })}\n\n`);
       send("message_start", { message: { id: "msg_1", type: "message", role: "assistant", model: j.model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 5, output_tokens: 0 } } });
+      const last = j.messages.at(-1);
+      if (j.tools?.length && typeof last.content === "string") {
+        // First turn with tools: call each requested tool named in the prompt.
+        const names: string[] = last.content.split(" ").filter((w: string) => j.tools.some((t: any) => t.name === w));
+        toolRequests.push(j.tools.map((t: any) => t.name));
+        names.forEach((name, i) => {
+          send("content_block_start", { index: i, content_block: { type: "tool_use", id: `toolu_${i}`, name, input: {} } });
+          send("content_block_delta", { index: i, delta: { type: "input_json_delta", partial_json: name === "log_money" ? '{"stream":"shop","type":"sale","amount":25}' : "{}" } });
+          send("content_block_stop", { index: i });
+        });
+        send("message_delta", { delta: { stop_reason: "tool_use", stop_sequence: null }, usage: { output_tokens: 4 } });
+        send("message_stop", {});
+        return res.end();
+      }
+      if (Array.isArray(last.content) && last.content[0]?.type === "tool_result") {
+        const text = "Results: " + last.content.map((r: any) => `${r.is_error ? "ERR " : ""}${r.content}`).join(" | ");
+        send("content_block_start", { index: 0, content_block: { type: "text", text: "" } });
+        send("content_block_delta", { index: 0, delta: { type: "text_delta", text } });
+        send("content_block_stop", { index: 0 });
+        send("message_delta", { delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 4 } });
+        send("message_stop", {});
+        return res.end();
+      }
       send("content_block_start", { index: 0, content_block: { type: "text", text: "" } });
       send("content_block_delta", { index: 0, delta: { type: "text_delta", text: "Hello from " + j.model } });
       send("content_block_stop", { index: 0 });
@@ -87,4 +111,46 @@ test("no key gives a helpful error instead of a crash", async () => {
   const events = [];
   for await (const ev of runClaude({ keys: [], system: "x", messages: [{ role: "user", content: "hi" }], mode: "fast" })) events.push(ev);
   assert.equal(events[0].type, "error");
+});
+
+test("agents can use tools on your data, and tool errors don't crash the chat", async () => {
+  const { runClaude } = await import("../src/server/engines/claude.ts");
+  const { toolsFor } = await import("../src/server/tools.ts");
+  const { Store } = await import("../src/server/store.ts");
+  const { validateStream } = await import("../src/server/ventures.ts");
+  const store = new Store(path.join(process.env.GUG_DATA!, "tools-db.json"));
+  store.data.ventures.streams.push(validateStream({ name: "Shop", kind: "shopify" }));
+  const tools = toolsFor(store, "ledger");
+  assert.deepEqual(tools.map((t) => t.def.name), ["money_summary", "log_money", "leave_note"]);
+  assert.ok(tools.every((t) => t.def.eager_input_streaming), "client tools stream their input");
+
+  const events: any[] = [];
+  for await (const ev of runClaude({ keys: ["sk-ant-test-key"], system: "test", messages: [{ role: "user", content: "please log_money then money_summary and unknown_tool" }], mode: "fast", tools })) events.push(ev);
+  const toolEvents = events.filter((e) => e.type === "tool");
+  assert.equal(toolEvents.length, 2);
+  assert.match(toolEvents[0].detail, /sale 25 → Shop/);
+  assert.equal(store.data.ventures.entries.length, 1, "the sale was really logged");
+  const text = events.filter((e) => e.type === "text").map((e) => e.text).join("");
+  assert.match(text, /Logged sale of 25 to Shop/);
+  assert.match(text, /"revenue":25/);
+  assert.equal(events.at(-1)?.type, "done");
+  assert.deepEqual(toolRequests.at(-1), ["money_summary", "log_money", "leave_note"]);
+
+  // A tool that fails reports the error back to the model instead of throwing.
+  store.data.ventures.streams = [];
+  const again: any[] = [];
+  for await (const ev of runClaude({ keys: ["sk-ant-test-key"], system: "test", messages: [{ role: "user", content: "log_money" }], mode: "fast", tools })) again.push(ev);
+  assert.match(again.find((e) => e.type === "tool").detail, /couldn’t: No stream called/);
+  assert.match(again.filter((e) => e.type === "text").map((e) => e.text).join(""), /ERR No stream/);
+});
+
+test("an agent's data access setting limits its tools", async () => {
+  const { toolsFor } = await import("../src/server/tools.ts");
+  const { Store } = await import("../src/server/store.ts");
+  const store = new Store(path.join(process.env.GUG_DATA!, "access-db.json"));
+  assert.ok(toolsFor(store, "echo").some((t) => t.writes), "can make changes by default");
+  store.data.prefs.agents.echo = { autonomy: "read" };
+  assert.deepEqual(toolsFor(store, "echo").map((t) => t.def.name), ["list_posts"]);
+  store.data.prefs.agents.echo = { autonomy: "off" };
+  assert.equal(toolsFor(store, "echo").length, 0);
 });
