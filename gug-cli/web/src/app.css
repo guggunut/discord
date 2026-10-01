@@ -122,3 +122,12 @@ kbd{display:inline-block;min-width:18px;padding:1px 5px;border-radius:5px;border
 .beat-cell.on.bass{background:linear-gradient(180deg,#F4F4F5,#A1A1AA);border-color:#fff;box-shadow:0 0 14px -4px rgba(255,255,255,.8)}
 .beat-cell.now{outline:2px solid rgba(255,255,255,.65);outline-offset:1px}
 .beat-cell.on.now{transform:scale(1.08)}
+
+/* Agents orbiting the core */
+.crew{position:absolute;left:50%;top:48%;width:0;height:0;pointer-events:none;animation:crewSpin 60s linear infinite;--d:60s}
+.crew.busy{animation-duration:16s;--d:16s}
+.crew-m{position:absolute;left:-15px;top:-15px;transition:opacity .4s}
+.crew-in{display:block;animation:crewSpin var(--d) linear infinite reverse;opacity:.6;transition:opacity .3s,scale .3s}
+.crew-m.on .crew-in{opacity:1;scale:1.35;filter:drop-shadow(0 0 10px rgba(255,43,58,.9))}
+@keyframes crewSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.crew,.crew-in{animation:none}}

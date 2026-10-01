@@ -2,6 +2,7 @@
 // Build mode). Drag to spin, click to pulse.
 import { useRef, useState, type PointerEvent } from "react";
 import { play } from "./sfx";
+import { Sigil } from "./ui";
 
 export type CoreMode = "fast" | "deep" | "debate" | "build";
 
@@ -20,7 +21,7 @@ const BOT = [
 ];
 const CUBE_FACES = ["rotateY(0deg)", "rotateY(90deg)", "rotateY(180deg)", "rotateY(-90deg)", "rotateX(90deg)", "rotateX(-90deg)"];
 
-export function Core({ mode, busy, voice, label, height = 380 }: { mode: CoreMode; busy: boolean; voice: boolean; label: string; height?: number }) {
+export function Core({ mode, busy, voice, label, height = 380, crew = [], active }: { mode: CoreMode; busy: boolean; voice: boolean; label: string; height?: number; crew?: string[]; active?: string }) {
   const [rot, setRot] = useState({ x: -16, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [bursts, setBursts] = useState(0);
@@ -119,6 +120,21 @@ export function Core({ mode, busy, voice, label, height = 380 }: { mode: CoreMod
           </div>
         </div>
       </div>
+      {crew.length > 1 && (
+        // The selected agents orbit the core; whoever is talking lights up.
+        <div className={`crew ${busy ? "busy" : ""}`} aria-hidden="true">
+          {crew.map((id, i) => {
+            const a = (i / crew.length) * 360;
+            return (
+              <span key={id} className={`crew-m ${active === id ? "on" : ""}`} style={{ transform: `rotate(${a}deg) translate(min(150px, 30vw)) rotate(${-a}deg)` }}>
+                <span className="crew-in">
+                  <Sigil id={id} size={30} glow={active === id} />
+                </span>
+              </span>
+            );
+          })}
+        </div>
+      )}
       <span className="hud" style={{ left: 14, top: 14, borderTopWidth: 1, borderLeftWidth: 1 }} />
       <span className="hud" style={{ right: 14, top: 14, borderTopWidth: 1, borderRightWidth: 1 }} />
       <span className="hud" style={{ left: 14, bottom: 14, borderBottomWidth: 1, borderLeftWidth: 1 }} />

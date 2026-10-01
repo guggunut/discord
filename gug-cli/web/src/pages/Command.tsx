@@ -179,7 +179,7 @@ export function Command() {
 
       <section style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
         <div className="rise d3">
-          <Core mode={mode} busy={busy} voice={voice} label={busy ? "Thinking" : voice ? "Listening" : noKey ? "Add a Claude key to wake me" : "Core online"} />
+          <Core crew={sel} active={busy ? lines.at(-1)?.agent : undefined} mode={mode} busy={busy} voice={voice} label={busy ? "Thinking" : voice ? "Listening" : noKey ? "Add a Claude key to wake me" : "Core online"} />
         </div>
         <div className="card rise d4" style={{ padding: "14px 14px 12px", borderRadius: 22 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minHeight: 30, marginBottom: 4 }}>
